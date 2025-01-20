@@ -30,6 +30,16 @@ static void setDefaultIatTimingCorrection() {
 	copyArray(config->ignitionIatCorrTable[2], {0, 0, 0, 0, 0, 0, -1, -2});
 }
 
+static void setDefaultCltTimingCorrection() {
+	copyArray(config->ignitionCltCorrTempBins, { -20, 0, 20, 40, 60});
+	setLinearCurve(config->ignitionCltCorrLoadBins, /*from=*/ 0, /*to*/ 140, 1);
+
+	for (size_t i = 0; i < 5; i++) {
+		copyArray(config->ignitionCltCorrTable[i], {0, 0, 0, 0, 0});
+	}
+}
+
+
 static float getAdvanceForRpm(float rpm, float advanceMax) {
 	if (rpm >= 3000) {
 		return advanceMax;
@@ -100,8 +110,7 @@ void setDefaultIgnition() {
 	engineConfiguration->trailingSparkAngle = 10;
 
 	// CLT correction
-	setLinearCurve(config->cltTimingBins, CLT_CURVE_RANGE_FROM, 120, 1);
-	setArrayValues(config->cltTimingExtra, 0.0f);
+	setDefaultCltTimingCorrection();
 
 	// IAT correction
 	setDefaultIatTimingCorrection();
