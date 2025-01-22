@@ -1,5 +1,6 @@
 # defines SHORT_BOARD_NAME
 include $(BOARD_DIR)/meta-info.env
+BOARDCPPSRC =  $(BOARD_DIR)/board_configuration.cpp
 
 # one day when we are grown ups and can coordinate a real life test we shall revisit https://github.com/rusefi/rusefi/issues/6008
 DDEFS += -DDISABLE_PIN_STATE_VALIDATION=TRUE
