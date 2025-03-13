@@ -99,7 +99,9 @@ expected<float> InjectorModelWithConfig::getFuelDifferentialPressure() const {
 			return getFuelReferencePressure()
 				+ baroKpa
 				- map.value_or(STD_ATMOSPHERE);
-		case ICM_SensedRailPressure: {
+
+		case ICM_SensedRailPressure:
+		case ICM_HPFP_Manual_Compensation: {
 			if (!Sensor::hasSensor(SensorType::FuelPressureInjector)) {
 				warning(ObdCode::OBD_Fuel_Pressure_Sensor_Missing, "Fuel pressure compensation is set to use a pressure sensor, but none is configured.");
 				return unexpected;
