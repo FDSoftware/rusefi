@@ -108,30 +108,8 @@ expected<float> InjectorModelWithConfig::getFuelDifferentialPressure() const {
 			}
 
 			auto fps = Sensor::get(SensorType::FuelPressureInjector);
+			return fps.Value - map.Value;
 
-			// TODO: what happens when the sensor fails?
-			if (!fps) {
-				return unexpected;
-			}
-
-			switch (engineConfiguration->fuelPressureSensorMode) {
-				case FPM_Differential:
-					// This sensor directly measures delta-P, no math needed!
-					return fps.Value;
-				case FPM_Gauge:
-					if (!map) {
-						return unexpected;
-					}
-
-					return fps.Value + baroKpa - map.Value;
-				case FPM_Absolute:
-				default:
-					if (!map) {
-						return unexpected;
-					}
-
-					return fps.Value - map.Value;
-			}
 		} default: return unexpected;
 	}
 }
