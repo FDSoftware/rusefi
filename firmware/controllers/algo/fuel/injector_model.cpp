@@ -99,7 +99,9 @@ expected<float> InjectorModelWithConfig::getFuelDifferentialPressure() const {
 			return getFuelReferencePressure()
 				+ baroKpa
 				- map.value_or(STD_ATMOSPHERE);
-		case ICM_SensedRailPressure: {
+
+		case ICM_SensedRailPressure:
+		case ICM_HPFP_Manual_Compensation: {
 			if (!Sensor::hasSensor(SensorType::FuelPressureInjector)) {
 				warning(ObdCode::OBD_Fuel_Pressure_Sensor_Missing, "Fuel pressure compensation is set to use a pressure sensor, but none is configured.");
 				return unexpected;
@@ -215,7 +217,7 @@ float InjectorModelWithConfig::getInjectionDuration(float fuelMassGram) const {
 
 	auto fps = Sensor::get(SensorType::FuelPressureInjector);
 	float fuelMassCompensation = interpolate3d(config->hpfpFuelMassCompensation,
-			config->hpfpFuelMassCompensationFuelPressure, KPA2BAR(fps.Value),
+			config->hpfpFuelMassCompensationFuelPressure, fps.Value,
 			config->hpfpFuelMassCompensationFuelMass, fuelMassGram * 1000);
 
 	// recalculate base duration with fuell mass compensation
