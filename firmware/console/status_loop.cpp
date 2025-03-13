@@ -423,10 +423,9 @@ static void updateLambda() {
 }
 
 static void updateFuelSensors() {
-	// Low pressure is directly in kpa
+	// Low pressure & High pressure is directly in kpa
 	engine->outputChannels.lowFuelPressure = Sensor::getOrZero(SensorType::FuelPressureLow);
-	// High pressure is in bar, aka 100 kpa
-	engine->outputChannels.highFuelPressure = KPA2BAR(Sensor::getOrZero(SensorType::FuelPressureHigh));
+	engine->outputChannels.highFuelPressure = Sensor::getOrZero(SensorType::FuelPressureHigh);
 
 	engine->outputChannels.flexPercent = Sensor::getOrZero(SensorType::FuelEthanolPercent);
 
