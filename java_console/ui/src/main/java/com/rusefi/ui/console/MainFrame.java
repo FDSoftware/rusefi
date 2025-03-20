@@ -89,7 +89,7 @@ public class MainFrame {
 
             @Override
             public void onConnectionEstablished() {
-                ConnectionWatchdog.init(linkManager);
+                //ConnectionWatchdog.init(linkManager);
 
                 SwingUtilities.invokeLater(() -> {
 //                    tabbedPane.settingsTab.showContent(linkManager);
