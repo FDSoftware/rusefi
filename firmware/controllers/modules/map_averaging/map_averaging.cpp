@@ -53,7 +53,7 @@ static void endAveraging(MapAverager* arg);
 
 static size_t currentMapAverager = 0;
 
-static void startAveraging(mapSampler* s) {
+void startAveraging(mapSampler* s) {
 	efiAssertVoid(ObdCode::CUSTOM_ERR_6649, hasLotsOfRemainingStack(), "lowstck#9");
 
 	// TODO: set currentMapAverager based on cylinder bank
@@ -245,7 +245,7 @@ void MapAveragingModule::onEnginePhase(float /*rpm*/,
 		auto & mapAveraging = *engine->module<MapAveragingModule>();
 		mapSampler* s = &mapAveraging.samplers[i][0];
 
-		scheduleByAngle(&s->startTimer, edgeTimestamp, angleOffset, { startMapAveraging, s });
+		scheduleByAngle(&s->startTimer, edgeTimestamp, angleOffset, { startAveraging, s });
 	}
 }
 

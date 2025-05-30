@@ -28,6 +28,28 @@ TEST(EngineModules, MapAveragingModule_onEnginePhase) {
     EXPECT_FALSE(engine->outputChannels.isMapAveraging);
 }
 
+//TODO: remove this test after we merge all the map averager to the new logic (since useNewMapAveragingAngles will do nothing)
+TEST(EngineModules, MapAveragingModule_onEnginePhaseNewAngleCalculation) {
+    EngineTestHelper eth(engine_type_e::TEST_CRANK_ENGINE);
+    engineConfiguration->isMapAveragingEnabled = true;
+    engineConfiguration->measureMapOnlyInOneCylinder = true;
+    engineConfiguration->useNewMapAveragingAngles = true;
+    // trigger events at crank speed
+    for (size_t i = 0; i < 9; i++) {
+        eth.fireTriggerEventsWithDuration(200);
+        eth.executeActions();
+    }
+
+    EXPECT_TRUE(engine->outputChannels.isMapAveraging);
+    bool averageDone = eth.assertEventExistsAtEnginePhase("startMapAveraging callback", (void*)startAveraging, static_cast<angle_t>(50));
+    EXPECT_TRUE(averageDone);
+
+    // move forward
+    eth.fireRise(200);
+    eth.executeActions();
+    EXPECT_FALSE(engine->outputChannels.isMapAveraging);
+}
+
 TEST(EngineModules, MapAveragingModule_onFastCallback) {
     EngineTestHelper eth(engine_type_e::TEST_CRANK_ENGINE);
     engineConfiguration->isMapAveragingEnabled = true;
