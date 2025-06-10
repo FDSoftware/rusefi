@@ -69,6 +69,52 @@ jobs:
       run: |
         misc/git_scripts/common_submodule_init.sh
 
+    - name: Install Tools
+      run: |
+        sudo bash misc/actions/add-ubuntu-latest-apt-mirrors.sh
+        sudo apt-get install sshpass sshpass mtools
+
+    - name: Configuration Definition and Enum to String CI, without pushing new .jar
+      working-directory: ./java_tools
+      run: |
+        ./gradlew jar :config_definition_base:shadowJar :enum_to_string:shadowJar
+
+    - name: Generate Live Documentation
+      working-directory: ./firmware/
+      run: ./gen_live_documentation.sh
+
+    - name: Generate All Configs
+      working-directory: ./firmware/
+      run: bash gen_config.sh
+
+    # Commit changes and catch the error that occurs if nothing has been changed (without catching other errors)
+    - name: Commit fresh generated headers and TS project
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub gen-configs Action"
+        git add firmware/tunerstudio/generated
+        git add firmware/controllers/generated
+        git add 'firmware/*/*generated*.cpp'
+        git add 'firmware/*/*generated*.h'
+        git add 'firmware/config/boards/*/generated_ts_name_by_pin.cpp'
+        git add 'firmware/console/binary/generated/*.ini'
+        git add 'firmware/controllers/lua/generated/*.md'
+        git add *.java
+        git add *_generated.h
+        git status
+        OUT=$(git commit -m "Auto-generated configs and docs" 2>&1) || echo "commit failed, finding out why"
+        if echo "$OUT" | grep 'nothing to commit\|no changes added'; then
+          echo "headers: looks like nothing to commit"
+          exit 0
+        elif echo "$OUT" | grep 'changed'; then
+          echo "COMMIT=true" >> $GITHUB_ENV
+          echo "headers: looks like something has changed"
+          exit 0
+        else
+          echo "headers: looks like something unexpected"
+          exit 1
+        fi
+
     - name: Identify Agent
       run: |
         uname -a
@@ -87,10 +133,6 @@ jobs:
       working-directory: ./java_tools
       run: |
         ./gradlew :config_definition:shadowJar :enum_to_string:shadowJar
-
-    - name: Generate All Configs
-      working-directory: ./firmware/
-      run: bash gen_config.sh
 
     - name: Build Firmware
 #      run: .github/workflows/hw-ci/build_for_hw_ci.sh config/boards/f407-discovery f407-discovery
