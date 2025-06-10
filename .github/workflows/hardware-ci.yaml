@@ -36,7 +36,7 @@ jobs:
             vbatt_supply: 12
 
           - build-target: nucleo_f767
-            runs-on: hw-ci-nucleo-f7
+            runs-on: hw-ci-nucleo_f767-default
             test-suite: com.rusefi.HwCiNucleoF7
             test-suite-ini: firmware/tunerstudio/generated/rusefi_stm32f767_nucleo.ini
             folder: config/boards/nucleo_f767
