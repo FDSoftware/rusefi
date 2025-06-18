@@ -47,7 +47,10 @@ MockStepperHardware::~MockStepperHardware() { }
 MockTsChannel::MockTsChannel() : TsChannelBase("mock") { }
 MockTsChannel::~MockTsChannel() { }
 
-MockIdleController::MockIdleController() { }
+MockIdleController::MockIdleController() {
+printf("hella from mock\n");
+
+}
 MockIdleController::~MockIdleController() { }
 
 MockIgnitionController::MockIgnitionController() { }
