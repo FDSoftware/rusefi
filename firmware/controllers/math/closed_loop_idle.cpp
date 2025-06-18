@@ -62,6 +62,7 @@ void LongTermIdleTrim::loadLtitFromConfig() {
     }
 }
 
+//TODO: rpm unused?
 float LongTermIdleTrim::getLtitFactor(float rpm, float clt) const {
     if (!ltitTableInitialized) {
         return 1.0f; // No correction if not initialized
@@ -113,8 +114,8 @@ void LongTermIdleTrim::update(float rpm, float clt, bool acActive, bool fan1Acti
         return;
     }
 
-    auto& idleController = engine->module<IdleController>().unmock();
-    auto currentPhase = idleController.getCurrentPhase();
+    auto& idleController = engine->module<IdleController>();
+    auto currentPhase = idleController->getCurrentPhase();
 
     // LTIT should only learn during Phase::Idling
     if (currentPhase != IIdleController::Phase::Idling) {
@@ -124,7 +125,7 @@ void LongTermIdleTrim::update(float rpm, float clt, bool acActive, bool fan1Acti
     }
 
     // Check if we're in idle RPM range
-    float targetRpm = idleController.getTargetRpm(clt).ClosedLoopTarget;
+    float targetRpm = idleController->getTargetRpm(clt).ClosedLoopTarget;
     float rpmDelta = std::abs(rpm - targetRpm);
     bool isIdleRpm = rpmDelta < engineConfiguration->ltitStableRpmThreshold;
 
@@ -136,6 +137,7 @@ void LongTermIdleTrim::update(float rpm, float clt, bool acActive, bool fan1Acti
     }
 
     // Check if stable for minimum time
+    // TODO: set ltitStableTime default value? also move to autoscale 0.1 like other configs with seconds?
     if (!isStableIdle && m_stableIdleTimer.hasElapsedSec(engineConfiguration->ltitStableTime)) {
         isStableIdle = true;
     }
@@ -144,7 +146,7 @@ void LongTermIdleTrim::update(float rpm, float clt, bool acActive, bool fan1Acti
         return;
     }
 
-    if (!idleController.useClosedLoop) {
+    if (!idleController->useClosedLoop) {
         return; // PID não está ativo, não há integrador válido
     }
 
