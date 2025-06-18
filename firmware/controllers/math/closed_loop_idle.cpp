@@ -9,7 +9,7 @@
 
 LongTermIdleTrim::LongTermIdleTrim() {
     initializeTableWithDefaults();
-    emaError = 0.0f;
+    emaError = 0.0f; //TODO: unused?
     ltitTableInitialized = false;
     m_pendingSave = false;
 }
@@ -21,6 +21,7 @@ void LongTermIdleTrim::initializeTableWithDefaults() {
     }
 }
 
+//TODO: move? add? to validateConfigOnStartUpOrBurn
 bool LongTermIdleTrim::hasValidData() const {
     // More robust validation - check for reasonable range and distribution
     int validCount = 0;
@@ -54,6 +55,7 @@ void LongTermIdleTrim::loadLtitFromConfig() {
 
         ltitTableInitialized = true;
     } else {
+        //TODO: this is part of setDefaultEngineConfiguration?
         // Initialize with defaults if no valid data
         initializeTableWithDefaults();
         ltitTableInitialized = true;
@@ -158,6 +160,8 @@ void LongTermIdleTrim::update(float rpm, float clt, bool acActive, bool fan1Acti
     }
     m_updateTimer.reset();
 
+    //TODO: docs?, weird use of non-public interpolation.h, we are trying to the get bin index for X temp?
+    // also ltitTableHelper scale will depend on clt idle bins?
     // Use proper bin finding with getBin function for CLT only
     auto cltBin = priv::getBin(clt, config->cltIdleCorrBins);
 
@@ -206,6 +210,7 @@ void LongTermIdleTrim::onIgnitionStateChanged(bool ignitionOn) {
         m_pendingSave = false;
     } else if (updatedLtit) {
         // Schedule save after ignition off
+        // TODO: maybe move all this to EngineModule & use needsDelayedShutoff?
         m_pendingSave = true;
         m_ignitionOffTimer.reset();
         updatedLtit = false;
@@ -221,6 +226,7 @@ void LongTermIdleTrim::checkIfShouldSave() {
         }
 
         if (m_ignitionOffTimer.hasElapsedSec(saveDelaySeconds)) {
+            // TODO: copyArray?
             // Save to flash memory
             for (int i = 0; i < LTIT_TABLE_SIZE; i++) {
                 // Convert float to autoscaled uint16_t
@@ -228,6 +234,7 @@ void LongTermIdleTrim::checkIfShouldSave() {
             }
 
 #if EFI_PROD_CODE
+            //TODO: we need to use requestBurn here?
             setNeedToWriteConfiguration();
 #endif // EFI_PROD_CODE
             m_pendingSave = false;
