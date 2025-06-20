@@ -96,7 +96,7 @@ bool LongTermIdleTrim::isValidConditionsForLearning(float idleIntegral) const {
     return true;
 }
 
-//TODO: acActive unused, fan1Active, fan2Active
+//TODO: acActive unused, fan1Active, fan2Active, check comment about isValidConditionsForLearning
 void LongTermIdleTrim::update(float rpm, float clt, bool acActive, bool fan1Active, bool fan2Active, float idleIntegral) {
     if (!engineConfiguration->ltitEnabled) {
         return;
