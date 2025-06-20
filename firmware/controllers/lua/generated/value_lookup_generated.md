@@ -2020,3 +2020,6 @@ Voltage when the wastegate is closed
 ### dynoCarFrontalAreaM2
 @@DYNO_CAR_FRONTAL_AREA_TOOLTIP@@
 
+### technicalDebt7738
+null
+

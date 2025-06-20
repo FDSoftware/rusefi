@@ -96,6 +96,7 @@ bool LongTermIdleTrim::isValidConditionsForLearning(float idleIntegral) const {
     return true;
 }
 
+//TODO: acActive unused, fan1Active, fan2Active
 void LongTermIdleTrim::update(float rpm, float clt, bool acActive, bool fan1Active, bool fan2Active, float idleIntegral) {
     if (!engineConfiguration->ltitEnabled) {
         return;
@@ -114,7 +115,7 @@ void LongTermIdleTrim::update(float rpm, float clt, bool acActive, bool fan1Acti
         return;
     }
 
-    auto& idleController = engine->module<IdleController>();
+    auto& idleController = engine->engineModules.get<IdleController>();
     auto currentPhase = idleController->getCurrentPhase();
 
     // LTIT should only learn during Phase::Idling
@@ -224,6 +225,7 @@ void LongTermIdleTrim::checkIfShouldSave() {
     if (m_pendingSave && !m_ignitionState) {
         float saveDelaySeconds = engineConfiguration->ltitIgnitionOffSaveDelay;
         if (saveDelaySeconds <= 0) {
+            //TODO: this is part of setDefaultEngineConfiguration?
             saveDelaySeconds = 5.0f; // Default 5 seconds
         }
 
@@ -244,6 +246,7 @@ void LongTermIdleTrim::checkIfShouldSave() {
     }
 }
 
+//TODO: unused?
 void LongTermIdleTrim::smoothLtitTable(float intensity) {
     if (!engineConfiguration->ltitEnabled || intensity <= 0.0f || intensity > 100.0f) {
         return; // Invalid intensity or LTIT disabled

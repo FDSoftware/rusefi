@@ -26,7 +26,8 @@ public:
     // Check if table has valid data
     bool hasValidData() const;
 
-private:
+
+//private:
     float ltitTableHelper[LTIT_TABLE_SIZE];
     bool ltitTableInitialized = false;
 
