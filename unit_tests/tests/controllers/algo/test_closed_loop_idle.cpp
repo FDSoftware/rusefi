@@ -274,18 +274,40 @@ TEST(LongTermIdleTrim, update) {
 //TODO: this func is unused:
 TEST(LongTermIdleTrim, smoothLtitTable){
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
-	setArrayValues(config->ltitTable, 100);
-	engineConfiguration->ltitEnabled = true;
-	engine->m_ltit.loadLtitFromConfig();
-    engine->m_ltit.onIgnitionStateChanged(true);
+    // idle config
+    engineConfiguration->idleMode = IM_AUTO;
 
-	constexpr int mocked_rpm = 920;
+    // ltit config
+    engineConfiguration->ltitEnabled = true;
+    engineConfiguration->ltitStableRpmThreshold = 50; // +-50 rpm
+    engineConfiguration->ltitStableTime = 1; // second
+    engineConfiguration->ltitIgnitionOnDelay = 1; // second
+    engineConfiguration->ltitIntegratorThreshold = 4; // % ?
+	setArrayValues(config->ltitTable, 105);
+
+    constexpr int mocked_rpm = 920;
 	constexpr int mocked_temp = 45.5;
 
-	engine->m_ltit.update(mocked_rpm, mocked_temp, false, false, false, 4.5);
+    StrictMock<MockIdleLT> idler;
+    engine->engineModules.get<IdleController>().set(&idler);
+	idler.m_lastPhase = ICP::Idling;
+	idler.useClosedLoop = true;
 
-    // randomize a bit the table:
-    for(size_t i; i < efi::size(engine->m_ltit.ltitTableHelper); i++){
+    // LTIT not initialized
+    EXPECT_FALSE(engine->m_ltit.isValidConditionsForLearning(4.5f));
+    engine->m_ltit.loadLtitFromConfig();
+    engine->m_ltit.onIgnitionStateChanged(true);
+
+    // idle controller useClosedLoop
+	engine->engineModules.get<IdleController>()->useClosedLoop = true;
+
+    advanceTimeUs(MS2US(2500));
+   	engine->m_ltit.update(mocked_rpm, mocked_temp, false, false, false, 4.5);
+
+	setArrayValues(engine->m_ltit.ltitTableHelper, 100);
+
+	// randomize a bit the table:
+    for(size_t i = 0; i < LTIT_TABLE_SIZE; i++){
       engine->m_ltit.ltitTableHelper[i] = engine->m_ltit.ltitTableHelper[i] + (5 * i);
     }
 
