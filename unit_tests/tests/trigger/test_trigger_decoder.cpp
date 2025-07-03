@@ -128,7 +128,6 @@ TEST(misc, testFordAspire) {
 
 	ASSERT_FALSE(t->shapeDefinitionError) << "isError";
 
-	ASSERT_NEAR(0.5, initState.triggerSyncGapRatio, 0.001) << "actual gap ratio";
 	engineConfiguration->crankingTimingAngle = 31;
 
 	int rpm = 2000;

@@ -322,6 +322,7 @@ public class CommonFunctionalTest extends RusefiTestBase {
     @Test
     public void testFordAspire() {
         ecu.setEngineType(engine_type_e.TEST_ENGINE);
+        ecu.sendCommand(IoUtil.setTriggerType(com.rusefi.enums.trigger_type_e.TT_FORD_ASPIRE));
         ecu.sendCommand("disable cylinder_cleanup");
         ecu.sendCommand(CMD_SET_SENSOR_MOCK + " " + SensorType.Map.name() + " 69.12");
         ecu.sendCommand(CMD_SET_SENSOR_MOCK + " " + SensorType.BatteryVoltage.name() + " 12");
