@@ -78,6 +78,7 @@ void applyEngineType(engine_type_e engineType) {
 	case engine_type_e::SIMULATOR_CONFIG:
 	case engine_type_e::HELLEN_121_VAG_4_CYL:
 	case engine_type_e::MINIMAL_PINS:
+	case engine_type_e::UNUSED_3:
 		// all basic settings are already set in prepareVoidConfiguration(), no need to set anything here
 		// nothing to do - we do it all in setBoardDefaultConfiguration
 		break;
