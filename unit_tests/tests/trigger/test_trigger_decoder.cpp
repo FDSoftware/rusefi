@@ -121,6 +121,8 @@ extern TriggerDecoderBase initState;
 TEST(misc, testFordAspire) {
 	printf("*************************************************** testFordAspire\r\n");
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	setSingleCoilDwell();
+	engineConfiguration->ignitionMode = IM_ONE_COIL;
 	eth.setTriggerType(trigger_type_e::TT_FORD_ASPIRE);
 	TriggerWaveform *t = &engine->triggerCentral.triggerShape;
 
