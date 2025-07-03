@@ -8,7 +8,6 @@
 #include "pch.h"
 
 #include "trigger_decoder.h"
-#include "ford_aspire.h"
 #include "dodge_neon.h"
 #include "ford_1995_inline_6.h"
 #include "event_queue.h"
@@ -117,15 +116,19 @@ TEST(misc, testGetCoilDutyCycleIssue977) {
 	ASSERT_NEAR( 26.66666, getCoilDutyCycle(rpm), 0.0001);
 }
 
+extern TriggerDecoderBase initState;
+
 TEST(misc, testFordAspire) {
 	printf("*************************************************** testFordAspire\r\n");
-
-	ASSERT_EQ( 4,  getTriggerZeroEventIndex(engine_type_e::FORD_ASPIRE_1996)) << "getTriggerZeroEventIndex";
-
-	EngineTestHelper eth(engine_type_e::FORD_ASPIRE_1996);
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+	eth.setTriggerType(trigger_type_e::TT_FORD_ASPIRE);
+	TriggerWaveform *t = &engine->triggerCentral.triggerShape;
 
 	ASSERT_EQ( 4,  getTriggerCentral()->triggerShape.getTriggerWaveformSynchPointIndex()) << "getTriggerWaveformSynchPointIndex";
 
+	ASSERT_FALSE(t->shapeDefinitionError) << "isError";
+
+	ASSERT_NEAR(0.5, initState.triggerSyncGapRatio, 0.001) << "actual gap ratio";
 	engineConfiguration->crankingTimingAngle = 31;
 
 	int rpm = 2000;
@@ -138,8 +141,6 @@ TEST(misc, testFordAspire) {
 	ASSERT_NEAR(3.25, engine->ignitionState.getDwell(), 0.0001) << "higher rpm dwell";
 
 }
-
-extern TriggerDecoderBase initState;
 
 static void testTriggerDecoder2(const char *msg, engine_type_e type, int synchPointIndex, float channel1duty, float channel2duty, float expectedGapRatio = NAN) {
 	printf("====================================================================================== testTriggerDecoder2 msg=%s\r\n", msg);
@@ -350,7 +351,6 @@ TEST(trigger, testTriggerDecoder) {
 	printf("====================================================================================== testTriggerDecoder part 2\r\n");
 	testTriggerDecoder2("Dodge Neon 1995", engine_type_e::DODGE_NEON_1995, 0, 0.4931, 0.2070);
 
-	testTriggerDecoder2("ford aspire", engine_type_e::FORD_ASPIRE_1996, 4, 0.0000, 0.5);
 
 	testTriggerDecoder2("dodge ram", engine_type_e::DODGE_RAM, 16, 0.5000, 0.06);
 

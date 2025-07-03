@@ -8,7 +8,6 @@
 #include "dodge_neon.h"
 #include "dodge_ram.h"
 
-#include "ford_aspire.h"
 #include "ford_1995_inline_6.h"
 #include "ford_ecoboost.h"
 
@@ -359,9 +358,6 @@ void applyEngineType(engine_type_e engineType) {
 		break;
 	case engine_type_e::DODGE_NEON_2003_CRANK:
 		setDodgeNeonNGCEngineConfiguration();
-		break;
-	case engine_type_e::FORD_ASPIRE_1996:
-		setFordAspireEngineConfiguration();
 		break;
 	case engine_type_e::NISSAN_PRIMERA:
 		setNissanPrimeraEngineConfiguration();
