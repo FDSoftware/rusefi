@@ -216,6 +216,7 @@ jobs:
 #
 # Note to humans: on personal devices we have firmware/provide_gcc.sh and setup_linux_environment.sh
 #
+
       # TODO: address `Acquire GCC` version copy paste, maybe a tiny action to acquire specific version?
     - name: Acquire Arm GNU Toolchain (arm-none-eabi-gcc)
       uses: carlosperate/arm-none-eabi-gcc-action@v1
