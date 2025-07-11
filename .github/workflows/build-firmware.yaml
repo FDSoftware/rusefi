@@ -133,15 +133,19 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Checkout Commit
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.GITHUB_SHA }}
+    - name: Get Head Commit Message
+      id: get_head_commit_message
+      run: echo "COMMIT_MESSAGE=$(git show -s --format=%s)" >> "$GITHUB_OUTPUT"
+
     - name: Set matrix
       id: set-matrix
       run: |
         export EVENT_NAME="${{github.event_name}}"
         export RUN_ATTEMPT="${{github.run_attempt}}"
-        read -d '' COMMIT_MESSAGE << EOM || true
-        ${{ github.event.head_commit.message }}
-        EOM
-        export COMMIT_MESSAGE
         echo "matrix=$(bash firmware/bin/generate_matrix.sh)" >> $GITHUB_OUTPUT
 
   build-firmware:
