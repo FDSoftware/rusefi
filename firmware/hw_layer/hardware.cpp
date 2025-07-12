@@ -411,6 +411,8 @@ void setBor(int borValue) {
 }
 #endif /* EFI_BOR_LEVEL */
 
+
+
 // Weak link a stub so that every board doesn't have to implement this function
 // Called before configuration is loaded
 PUBLIC_API_WEAK void boardInitHardwareEarly() { }
