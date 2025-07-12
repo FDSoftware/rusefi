@@ -137,7 +137,7 @@ jobs:
 
     - name: Get Head Commit Message
       id: get_head_commit_message
-      run: echo "$COMMIT_MESSAGE=$(git show -s --format=%s)" >> "$GITHUB_OUTPUT"
+      run: echo "COMMIT_MESSAGE=$(git show -s --format=%s)" >> "$GITHUB_OUTPUT"
 
     - name: Set matrix
       id: set-matrix
