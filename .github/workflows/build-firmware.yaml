@@ -132,14 +132,12 @@ jobs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
     - uses: actions/checkout@v4
-
-    - name: Checkout Commit
-      uses: actions/checkout@v4
       with:
         ref: ${{ env.GITHUB_SHA }}
+
     - name: Get Head Commit Message
       id: get_head_commit_message
-      run: echo "COMMIT_MESSAGE=$(git show -s --format=%s)" >> "$GITHUB_OUTPUT"
+      run: echo "$COMMIT_MESSAGE=$(git show -s --format=%s)" >> "$GITHUB_OUTPUT"
 
     - name: Set matrix
       id: set-matrix
