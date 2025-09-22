@@ -2,7 +2,7 @@ package com.rusefi.maintenance.migration.digit_field_migration;
 
 import com.rusefi.maintenance.TestTuneMigrationContext;
 import com.rusefi.maintenance.migration.ComposedTuneMigrator;
-import com.rusefi.maintenance.migration.default_migration.DefaultTestTuneMigrationContext;
+import com.rusefi.maintenance.migration.digit_field_migration.DigitIniFieldMigrationContext;
 import com.rusefi.tune.xml.Constant;
 import org.junit.jupiter.api.Test;
 
@@ -16,7 +16,7 @@ public class DigitIniFieldMigratorTest {
 
     @Test
     void checkDigitMigrations() throws JAXBException {
-        final TestTuneMigrationContext testContext = DefaultTestTuneMigrationContext.load();
+        final TestTuneMigrationContext testContext = DigitIniFieldMigrationContext.load();
         ComposedTuneMigrator.INSTANCE.migrateTune(testContext);
         final Map<String, Constant> migratedConstants = testContext.getMigratedConstants();
 
