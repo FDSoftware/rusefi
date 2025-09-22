@@ -10,6 +10,8 @@ import static com.devexperts.logging.Logging.getLogging;
 import static javax.management.ObjectName.quote;
 import static javax.management.ObjectName.unquote;
 
+import java.text.MessageFormat;
+
 //note: this migration is different from the one on IniFieldMigratorUtils.java,
 //here we execute a lambda for every field to migrate to patch the old scale to the new
 
@@ -44,8 +46,16 @@ class IntDigitField {
     }
 
     public String migrateField(String oldTuneFieldValue) {
+        // "12" => 12
         Double fieldValue =  Double.parseDouble(unquote(oldTuneFieldValue));
-        return quote(this.migrator.doMigration(fieldValue).toString());
+        
+        // 12 => 12.456
+        Double migratedField = this.migrator.doMigration(fieldValue);
+        
+        // migratedField = 12.456; expectedNewDigits = 2; => 12.45
+        String migratedValue = String.format(MessageFormat.format("%.{0}f", this.expectedNewDigits), migratedField);
+        
+        return quote(migratedValue);
     }
 
     public String getFieldName() {
