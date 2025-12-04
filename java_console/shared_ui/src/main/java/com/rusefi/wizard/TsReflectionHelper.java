@@ -91,10 +91,15 @@ final class TsReflectionHelper {
 
     private static void visitComponents(Component root, Consumer<Component> visitor) {
         visitor.accept(root);
+        try {
         if (root instanceof Container) {
-            for (Component c : ((Container) root).getComponents()) {
-                visitComponents(c, visitor);
-            }
+
+                for (Component c : ((Container) root).getComponents()) {
+                    visitComponents(c, visitor);
+                }
+        }
+        } catch (Exception e) {
+            System.out.println("Error visiting components: " + e.getMessage());
         }
     }
 }
