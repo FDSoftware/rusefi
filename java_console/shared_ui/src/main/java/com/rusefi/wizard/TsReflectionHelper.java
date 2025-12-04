@@ -23,6 +23,7 @@ final class TsReflectionHelper {
                 try {
                     String title = f.getTitle();
                     if (title != null && title.contains(TsAccess.TS_TITLE_FRAGMENT)) {
+                        System.out.println("Found TunerStudio main frame: " + title);
                         return f;
                     }
                 } catch (Throwable ignore) {
@@ -38,6 +39,7 @@ final class TsReflectionHelper {
         visitComponents(frame, c -> {
             if (c instanceof AbstractButton) {
                 String cn = c.getClass().getName();
+                System.out.println("Checking component class: " + cn.getClass().getName() + " button text: " + ((AbstractButton) c).getText());
                 if (TsAccess.getTsTopLevelButtonClass().equals(cn)) {
                     result.add((AbstractButton) c);
                 }
