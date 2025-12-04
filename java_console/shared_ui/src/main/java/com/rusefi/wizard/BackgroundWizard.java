@@ -77,6 +77,7 @@ public class BackgroundWizard {
             ControllerParameter currentVin = controllerAccessSupplier.get().getControllerParameterServer().getControllerParameter(mainConfigName, ECU_VIN_EMPTY);
 
             String ecuVinEmpty = currentVin.getStringValue();
+            log.info("ECU wizard flag: " + ecuVinEmpty);
             if (ecuVinEmpty.contains("true") || ecuVinEmpty.contains("yes")) {
                 launchVinUI();
             }
