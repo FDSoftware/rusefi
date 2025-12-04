@@ -88,7 +88,7 @@ public class BackgroundWizard {
     private static void launchVinUI() {
         log.info("Launching VIN UI");
         try {
-            Frame mainFrame = TsReflectionHelper.findTsMainFrame(10, TimeUnit.SECONDS);
+            Frame mainFrame = TsAccess.findTsMainFrame();
             if (mainFrame == null) {
                 throw new IllegalStateException("Could not find TunerStudio frame to launch wizard");
             }
