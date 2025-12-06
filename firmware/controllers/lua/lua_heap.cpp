@@ -184,6 +184,8 @@ void* luaHeapAlloc(void* /*ud*/, void* optr, size_t osize, size_t nsize) {
         // An old pointer was passed in. Only free it if we successfully allocated a new one.
         size_t oldSize = chHeapGetSize(optr);
         if (nptr != nullptr) {
+            chDbgAssert(osize <= oldSize, "Lua lost track of allocated mem");
+
             // Copy the minimum of old and new block sizes
             size_t copySize = (oldSize < newSize) ? oldSize : newSize;
             memcpy(nptr, optr, copySize);
@@ -192,9 +194,8 @@ void* luaHeapAlloc(void* /*ud*/, void* optr, size_t osize, size_t nsize) {
             luaMemoryUsed -= oldSize;
         } else {
             // Allocation failed, leave old block intact
-            return nullptr;
+            return optr;
         }
-    	chDbgAssert(osize <= chHeapGetSize(optr), "Lua lost track of allocated mem");
     }
 
 	if (engineConfiguration->debugMode == DBG_LUA) {
