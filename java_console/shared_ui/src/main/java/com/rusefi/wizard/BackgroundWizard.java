@@ -47,6 +47,7 @@ public class BackgroundWizard {
             BackgroundWizard.controllerAccessSupplier.get().getOutputChannelServer().subscribe("AppEvent", "controllerOnline", onlineListener);
         } catch (Exception e) {
             log.error("Error subscribing to controllerOnline event: " + e, e);
+            sleep(15000);
             launchVinUI(DIALOG_NAME_VEHICLE_INFORMATION);
         }
 
