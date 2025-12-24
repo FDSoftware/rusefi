@@ -55,6 +55,9 @@ public class BackgroundWizard {
                     periodicWizardLogic();
                 } catch (Throwable e) {
                     log.error("error " + e, e);
+                    if(currentState == CURRENT_STATE_ONLINE){
+                        WizardRunToogle = true;
+                    }
                 }
                 sleep(300);
             }
