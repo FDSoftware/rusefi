@@ -45,12 +45,15 @@ public class BackgroundWizard {
         BackgroundWizard.controllerAccessSupplier = controllerAccessSupplier;
 
         Thread thread = new Thread(() -> {
-            sleep(1500);
-            try {
-                BackgroundWizard.controllerAccessSupplier.get().getOutputChannelServer().subscribe("AppEvent", "controllerOnline", onlineListener);
-            } catch (Exception e) {
-                log.error("Error subscribing to controllerOnline event: " + e, e);
-                launchVinUI(DIALOG_NAME_VEHICLE_INFORMATION);
+            boolean subscribed = false;
+            while (!subscribed) {
+                try {
+                    BackgroundWizard.controllerAccessSupplier.get().getOutputChannelServer().subscribe("AppEvent", "controllerOnline", onlineListener);
+                    subscribed = true;
+                } catch (Exception e) {
+                    log.error("Error subscribing to controllerOnline event: " + e, e);
+                    sleep(5000);
+                }
             }
 
             while (true) {
