@@ -43,20 +43,22 @@ public class BackgroundWizard {
 
     public static void start(Supplier<ControllerAccess> controllerAccessSupplier) {
         BackgroundWizard.controllerAccessSupplier = controllerAccessSupplier;
-        try {
-            BackgroundWizard.controllerAccessSupplier.get().getOutputChannelServer().subscribe("AppEvent", "controllerOnline", onlineListener);
-        } catch (Exception e) {
-            log.error("Error subscribing to controllerOnline event: " + e, e);
-            sleep(15000);
-            launchVinUI(DIALOG_NAME_VEHICLE_INFORMATION);
-        }
 
         Thread thread = new Thread(() -> {
+            sleep(1500);
+            try {
+                BackgroundWizard.controllerAccessSupplier.get().getOutputChannelServer().subscribe("AppEvent", "controllerOnline", onlineListener);
+            } catch (Exception e) {
+                log.error("Error subscribing to controllerOnline event: " + e, e);
+                launchVinUI(DIALOG_NAME_VEHICLE_INFORMATION);
+            }
+
             while (true) {
                 try {
                     periodicWizardLogic();
                 } catch (Throwable e) {
                     log.error("Wizard crash, error " + e, e);
+                    WizardRunToogle = true;
                 }
                 sleep(300);
             }
@@ -170,8 +172,6 @@ public class BackgroundWizard {
     }
 
     public static void onEcuDiscovery(String serialSignature){
-        // delay between ecu discovery and TS actual reading all the config
-        sleep(8000);
         displayPlugin(serialSignature);
         currentState = CURRENT_STATE_ONLINE;
     }
