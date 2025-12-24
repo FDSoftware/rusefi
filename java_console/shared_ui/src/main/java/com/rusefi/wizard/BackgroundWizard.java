@@ -46,15 +46,17 @@ public class BackgroundWizard {
 
         Thread thread = new Thread(() -> {
             boolean subscribed = false;
+            // due to TS 3.2.03 and prior unable to subscribe to AppEvent event, we have to busy-wait (or retry) until we get and ecu online status
+            // triggered by onEcuDiscovery
             while (!subscribed) {
                 try {
                     BackgroundWizard.controllerAccessSupplier.get().getOutputChannelServer().subscribe("AppEvent", "controllerOnline", onlineListener);
                     subscribed = true;
                 } catch (Exception e) {
                     log.error("Error subscribing to controllerOnline event: " + e, e);
-                    if(currentState == CURRENT_STATE_ONLINE){
-                     subscribed = true;
-                    }else {
+                    if (currentState == CURRENT_STATE_ONLINE) {
+                        subscribed = true;
+                    } else {
                         sleep(5000);
                     }
                 }
