@@ -163,6 +163,8 @@ public class BackgroundWizard {
             }
         } catch (Throwable t) {
             log.error("Error launching VIN UI: " + t, t);
+            sleep(5000);
+            launchVinUI(panelToOpen);
         }
     }
 
