@@ -52,7 +52,11 @@ public class BackgroundWizard {
                     subscribed = true;
                 } catch (Exception e) {
                     log.error("Error subscribing to controllerOnline event: " + e, e);
-                    sleep(5000);
+                    if(currentState == CURRENT_STATE_ONLINE){
+                     subscribed = true;
+                    }else {
+                        sleep(5000);
+                    }
                 }
             }
 
