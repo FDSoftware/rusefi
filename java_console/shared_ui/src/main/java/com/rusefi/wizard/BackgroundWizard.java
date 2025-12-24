@@ -46,7 +46,7 @@ public class BackgroundWizard {
         try {
             BackgroundWizard.controllerAccessSupplier.get().getOutputChannelServer().subscribe("AppEvent", "controllerOnline", onlineListener);
         } catch (Exception e) {
-            log.error("error on onlineListener " + e, e);
+            log.error("Error subscribing to controllerOnline event: " + e, e);
         }
 
         Thread thread = new Thread(() -> {
@@ -54,7 +54,7 @@ public class BackgroundWizard {
                 try {
                     periodicWizardLogic();
                 } catch (Throwable e) {
-                    log.error("error " + e, e);
+                    log.error("Wizard crash, error " + e, e);
                     if(currentState == CURRENT_STATE_ONLINE){
                         WizardRunToogle = true;
                     }
@@ -171,6 +171,8 @@ public class BackgroundWizard {
     }
 
     public static void onEcuDiscovery(String serialSignature){
+        // delay between ecu discovery and TS actual reading all the config
+        sleep(8000);
         displayPlugin(serialSignature);
         currentState = CURRENT_STATE_ONLINE;
     }
