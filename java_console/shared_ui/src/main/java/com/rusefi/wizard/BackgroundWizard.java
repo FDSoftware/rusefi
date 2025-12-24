@@ -55,9 +55,7 @@ public class BackgroundWizard {
                     periodicWizardLogic();
                 } catch (Throwable e) {
                     log.error("Wizard crash, error " + e, e);
-                    if(currentState == CURRENT_STATE_ONLINE){
-                        WizardRunToogle = true;
-                    }
+                    launchVinUI(DIALOG_NAME_VEHICLE_INFORMATION);
                 }
                 sleep(300);
             }
