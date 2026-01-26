@@ -98,6 +98,7 @@ public class IniFileReader {
     }
 
     private int currentPageIndex;
+    private int currentPageBaseOffset;
 
     IniFileReader(@Nullable final IniFileMetaInfo metaInfo, final String iniFilePath) {
         this.metaInfo = metaInfo;
@@ -147,7 +148,18 @@ public class IniFileReader {
 
             if (!list.isEmpty() && list.get(0).equals(SECTION_PAGE)) {
                 if (list.size() >= 2) {
-                    currentPageIndex = Integer.parseInt(list.get(1));
+                    int newPageIndex = Integer.parseInt(list.get(1));
+                    // Calculate cumulative base offset for this page
+                    if (metaInfo != null && newPageIndex > 1) {
+                        currentPageBaseOffset = 0;
+                        for (int i = 0; i < newPageIndex - 1; i++) {
+                            currentPageBaseOffset += metaInfo.getPageSize(i);
+                        }
+                        log.info(String.format("Page %d: base offset = %d", newPageIndex, currentPageBaseOffset));
+                    } else {
+                        currentPageBaseOffset = 0;
+                    }
+                    currentPageIndex = newPageIndex;
                 }
                 isInsidePageDefinition = true;
                 return;
@@ -321,13 +333,73 @@ public class IniFileReader {
 
     private void registerField(IniField field) {
         if (currentPageIndex != 1) {
-            log.info("Skipping field from secondary page: " + field);
-            secondaryIniFields.put(field.getName(), field);
+            // Adjust offset for secondary page fields to be absolute within the concatenated ConfigurationImage
+            IniField adjustedField = adjustFieldOffsetForSecondaryPage(field, currentPageBaseOffset);
+            log.info(String.format("Secondary page field %s: original offset=%d, base offset=%d, adjusted offset=%d",
+                field.getName(), field.getOffset(), currentPageBaseOffset, adjustedField.getOffset()));
+            secondaryIniFields.put(adjustedField.getName(), adjustedField);
             return;
         }
         if (allIniFields.containsKey(field.getName()))
             return;
         allIniFields.put(field.getName(), field);
+    }
+
+    private IniField adjustFieldOffsetForSecondaryPage(IniField field, int pageBaseOffset) {
+        if (pageBaseOffset == 0) {
+            return field; // No adjustment needed
+        }
+        return field.accept(new IniFieldVisitor<IniField>() {
+            @Override
+            public IniField visit(ScalarIniField original) {
+                return new ScalarIniField(
+                    original.getName(),
+                    original.getOffset() + pageBaseOffset,
+                    original.getUnits(),
+                    original.getType(),
+                    original.getMultiplier(),
+                    original.getDigits(),
+                    original.getSerializationOffset()
+                );
+            }
+
+            @Override
+            public IniField visit(EnumIniField original) {
+                return new EnumIniField(
+                    original.getName(),
+                    original.getOffset() + pageBaseOffset,
+                    original.getType(),
+                    original.getEnums(),
+                    original.getBitPosition(),
+                    original.getBitSize0()
+                );
+            }
+
+            @Override
+            public IniField visit(ArrayIniField original) {
+                return new ArrayIniField(
+                    original.getName(),
+                    original.getOffset() + pageBaseOffset,
+                    original.getType(),
+                    original.getCols(),
+                    original.getRows(),
+                    original.getUnits(),
+                    original.getMultiplier(),
+                    original.getMin(),
+                    original.getMax(),
+                    original.getDigits()
+                );
+            }
+
+            @Override
+            public IniField visit(StringIniField original) {
+                return new StringIniField(
+                    original.getName(),
+                    original.getOffset() + pageBaseOffset,
+                    original.getSize()
+                );
+            }
+        });
     }
 
     private void handleSlider(LinkedList<String> list) {

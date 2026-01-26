@@ -120,4 +120,37 @@ public class ImmutableIniFileModelTest {
         assertTrue(field4.isPresent());
         assertEquals("SecondaryField", field4.get().getName());
     }
+
+    @Test
+    public void testSecondaryFieldOffsetAdjustment() {
+        // Test that secondary page fields have their offsets adjusted correctly
+        // when metaInfo is provided with page sizes
+        String iniContent =
+            "   nPages              = 2\n" +
+            "   pageSize            = 100, 200\n" +
+            "   signature      = \"test\"\n" +
+            "   pageReadCommand     = \"X\",       \"X\"\n" +
+            "   crc32CheckCommand     = \"X\",       \"X\"\n" +
+            "   ochBlockSize=1\n" +
+            "[Constants]\n" +
+            "page = 1\n" +
+            "page1Field = scalar, F32, 50, \"unit\", 1, 0, 0, 100, 1\n" +
+            "page = 2\n" +
+            "page2Field = scalar, F32, 10, \"unit\", 1, 0, 0, 100, 1\n";
+
+        RawIniFile lines = IniFileReaderUtil.read(new ByteArrayInputStream(iniContent.getBytes()));
+        // Use the actual IniFileReader with meta info parsed from the content
+        IniFileModel model = IniFileReaderUtil.readIniFile(lines, "");
+
+        // Primary field should have original offset
+        Optional<IniField> primaryField = model.findIniField("page1Field");
+        assertTrue(primaryField.isPresent());
+        assertEquals(50, primaryField.get().getOffset());
+
+        // Secondary field should have adjusted offset (page1 size=100 + page2 offset=10 = 110)
+        Optional<IniField> secondaryField = model.findIniField("page2Field");
+        assertTrue(secondaryField.isPresent());
+        // Expected: 100 (page 1 size) + 10 (offset in page 2) = 110
+        assertEquals(110, secondaryField.get().getOffset());
+    }
 }

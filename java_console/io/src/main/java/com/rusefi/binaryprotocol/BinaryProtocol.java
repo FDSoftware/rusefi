@@ -325,6 +325,8 @@ public class BinaryProtocol {
         final ConfigurationImageWithMeta imageWithMeta = new ConfigurationImageWithMeta(meta);
         final ConfigurationImage image = imageWithMeta.getConfigurationImage();
 
+        // Only read page 1 (index 0) which contains the configuration/calibration data
+        // Pages 2+ contain runtime/live data and must be read separately on-demand
         int offset = 0;
 
         long start = System.currentTimeMillis();
@@ -374,9 +376,79 @@ public class BinaryProtocol {
         return packet;
     }
 
+    public byte @NotNull [] smartPacketPrefixForPage(int pageIndex, int pageOffset, int requestSize) {
+        byte[] packet;
+        if (isSinglePageController()) {
+            // older controller, no page index in read command
+            packet = new byte[4];
+            ByteRange.packOffsetAndSize(pageOffset, requestSize, packet);
+        } else {
+            // newer controller with page index
+            packet = new byte[6];
+            ByteRange.packPageOffsetAndSize(pageIndex, pageOffset, requestSize, packet);
+        }
+        return packet;
+    }
+
     public boolean isSinglePageController() {
         String pageReadCommand = iniFile.getMetaInfo().getPageReadCommand(0);
         return pageReadCommand.length() == 7;
+    }
+
+    /**
+     * Reads a specific page from the controller (e.g., page 3 for LTFT data).
+     * This is for reading runtime/live data pages that are not part of the main configuration.
+     *
+     * @param pageIndex The page index to read (0-based array index, e.g., 0=page1, 1=page2, 2=page3)
+     * @return byte array containing the page data, or null if read failed
+     */
+    public byte[] readPage(int pageIndex) {
+        int pageSize = iniFile.getMetaInfo().getPageSize(pageIndex);
+        // Convert 0-based array index to 1-based INI page number for protocol
+        int iniPageNumber = pageIndex + 1;
+        log.info(String.format("Reading page %d (INI page %d) from controller, size=%d bytes",
+            pageIndex, iniPageNumber, pageSize));
+
+        byte[] pageData = new byte[pageSize];
+        int pageOffset = 0;
+        long start = System.currentTimeMillis();
+
+        while (pageOffset < pageSize && (System.currentTimeMillis() - start < Timeouts.READ_IMAGE_TIMEOUT)) {
+            if (stream.isClosed()) {
+                log.error("Stream closed while reading page " + pageIndex);
+                return null;
+            }
+
+            int remainingInPage = pageSize - pageOffset;
+            int requestSize = Math.min(remainingInPage, iniFile.getBlockingFactor());
+
+            // Send the INI page number (1-based) in the protocol packet, not the array index
+            byte[] packet = smartPacketPrefixForPage(iniPageNumber, pageOffset, requestSize);
+
+            byte[] response = executeCommand(Integration.TS_READ_COMMAND, packet,
+                String.format("read INI page=%d offset=%d size=%d", iniPageNumber, pageOffset, requestSize));
+
+            if (!checkResponseCode(response) || response.length != requestSize + 1) {
+                if (extractCode(response) == TS_RESPONSE_OUT_OF_RANGE) {
+                    log.error(String.format(
+                        "TS_RESPONSE_OUT_OF_RANGE when reading INI page %d at offset %d (size %d)",
+                        iniPageNumber, pageOffset, requestSize));
+                    return null;
+                }
+                String code = (response == null || response.length == 0) ? "empty" : "ERROR_CODE=" + getCode(response);
+                String info = response == null ? "NO RESPONSE" : (code + " length=" + response.length);
+                log.info(stream + ": readPage: ERROR UNEXPECTED Something is wrong, retrying... " + info);
+                continue;
+            }
+
+            HeartBeatListeners.onDataArrived();
+            System.arraycopy(response, 1, pageData, pageOffset, requestSize);
+            pageOffset += requestSize;
+        }
+
+        log.info(String.format("Successfully read page index %d (INI page %d), %d bytes",
+            pageIndex, iniPageNumber, pageSize));
+        return pageData;
     }
 
     @NotNull
