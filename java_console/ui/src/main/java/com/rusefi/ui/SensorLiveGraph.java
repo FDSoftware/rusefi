@@ -282,9 +282,15 @@ public class SensorLiveGraph extends JPanel {
             if (bp != null) {
                 IniFileModel iniFile = bp.getIniFileNullable();
                 if (iniFile != null) {
-                    // Find gauge by channel name (e.g., "TPSValue" maps to gauge "TPSGauge")
+                    // Attempt to find gauge definition from INI file to get proper min/max scale values.
+                    // First, try matching by output channel name (sensor.getNativeName() returns the
+                    // OutputChannels field name, e.g., "TPSValue"). The INI gauge (TPSGauge) reference this channel name via its "channel" attribute.
+                    // all this should be dead-code once once we move this SensorLiveGraph from Sensor to GaugeModel
+                    // (since there we can get the correct max/min value without this lookup thing)
                     GaugeModel gaugeModel = iniFile.findGaugeByChannel(sensor.getNativeName());
                     if (gaugeModel == null) {
+                        // Fallback: try direct gauge name lookup using the sensor enum name.
+                        // This works when the gauge name in the INI matches the Sensor enum name.
                         gaugeModel = iniFile.getGauges().get(sensor.name());
                     }
                     if (gaugeModel != null) {
