@@ -14,6 +14,22 @@
 
 #include "mpu_util.h"
 #include "flash_int.h"
+#include "persistent_configuration.h"
+
+// Page 4 lives at a fixed 32 KB offset within the primary settings sector.
+// A fixed offset is critical: if the offset were derived from sizeof(persistent_config_container_s)
+// it would shift whenever the config struct grows, causing the read address to change across
+// firmware updates and corrupting stored page 4 data.
+// 32 KB satisfies STM32H7's 32-byte flash-word alignment requirement
+// while keeping page 4 well within a 128 KB flash sector.
+static constexpr size_t PAGE4_SECTOR_OFFSET = 32u * 1024u;
+static_assert(sizeof(persistent_config_container_s) <= PAGE4_SECTOR_OFFSET,
+	"persistent_config_container_s exceeds PAGE4_SECTOR_OFFSET — increase the offset");
+
+static flashaddr_t getFlashAddrPage4() {
+	const uintptr_t first = getFlashAddrFirstCopy();
+	return first ? (first + PAGE4_SECTOR_OFFSET) : 0;
+}
 
 class SettingStorageFlash : public SettingStorageBase {
 public:
@@ -32,6 +48,8 @@ flashaddr_t SettingStorageFlash::getIdAddress(size_t id) {
 		return getFlashAddrFirstCopy();
 	} else if (id == EFI_SETTINGS_BACKUP_RECORD_ID) {
 		return getFlashAddrSecondCopy();
+	} else if (id == EFI_SECOND_TABLES_RECORD_ID) {
+		return getFlashAddrPage4();
 	}
 
 	return 0;
@@ -50,6 +68,17 @@ StorageStatus SettingStorageFlash::store(size_t id, const uint8_t *ptr, size_t s
 
 	if (addr == 0) {
 		return StorageStatus::NotSupported;
+	}
+
+	if (id == EFI_SECOND_TABLES_RECORD_ID) {
+		// Page 4 shares its sector with the main config. It must only be written
+		// immediately after a main config write has erased the sector.
+		// If the area is not blank, the caller must trigger a full config burn instead.
+		if (!intFlashIsErased(addr, size)) {
+			return StorageStatus::Failed;
+		}
+		const auto err = intFlashWrite(addr, reinterpret_cast<const char*>(ptr), size);
+		return (err == FLASH_RETURN_SUCCESS) ? StorageStatus::Ok : StorageStatus::Failed;
 	}
 
 	efiPrintf("Flash: Writing storage ID %d  @0x%x... %d bytes", id, addr, size);
@@ -95,6 +124,13 @@ StorageStatus SettingStorageFlash::read(size_t id, uint8_t *ptr, size_t size) {
 
 	if (addr == 0) {
 		return StorageStatus::NotSupported;
+	}
+
+	if (id == EFI_SECOND_TABLES_RECORD_ID) {
+		// If the area is still blank, page 4 has never been saved — signal to use defaults.
+		if (intFlashIsErased(addr, size)) {
+			return StorageStatus::NotFound;
+		}
 	}
 
 	efiPrintf("Flash: Reading storage ID %d @0x%x ... %d bytes", id, addr, size);

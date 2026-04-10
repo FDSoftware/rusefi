@@ -206,6 +206,8 @@ static uint8_t* getWorkingPageAddr(TsChannelBase* tsChannel, size_t page, size_t
 	case TS_PAGE_LTFT_TRIMS:
 		return (uint8_t *)ltftGetTsPage() + offset;
 #endif
+	case TS_PAGE_SECOND_TABLES:
+		return static_cast<uint8_t*>(secondTablesGetTsPage()) + offset;
 	default:
 		tunerStudioError(tsChannel, "ERROR: page address out of range");
 		return nullptr;
@@ -228,6 +230,8 @@ static constexpr size_t getTunerStudioPageSize(size_t page) {
 	case TS_PAGE_LTFT_TRIMS:
 		return ltftGetTsPageSize();
 #endif
+	case TS_PAGE_SECOND_TABLES:
+		return secondTablesGetTsPageSize();
 	default:
 		return 0;
 	}
@@ -508,6 +512,8 @@ static void handleBurnCommand(TsChannelBase* tsChannel, uint16_t page) {
 		efiPrintf("Burned in %.1fms", t.getElapsedSeconds() * 1e3);
 	} else if (page == TS_PAGE_SCATTER_OFFSETS) {
 		/* do nothing */
+	} else if (page == TS_PAGE_SECOND_TABLES) {
+		secondTablesBurn();
 	} else {
 		sendErrorCode(tsChannel, TS_RESPONSE_OUT_OF_RANGE, "ERROR: Burn invalid page");
 		return;
