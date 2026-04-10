@@ -24,16 +24,18 @@ static page4_container_s secondTablesContainer;
 
 static void secondTablesSetDefaults() {
 	secondTablesContainer.data = {};
-	setRpmTableBin(secondTablesContainer.data.secondVeRpmBins);
-	setLinearCurve(secondTablesContainer.data.secondVeLoadBins, 20, 120, 1);
-	setTable(secondTablesContainer.data.secondVeTable, 80);
+
+	// Start with the primary tables/bins as defaults
+	copyTable(secondTablesContainer.data.secondVeTable, config->veTable);
+	copyArray(secondTablesContainer.data.secondVeLoadBins, config->veLoadBins);
+	copyArray(secondTablesContainer.data.secondVeRpmBins, config->veRpmBins);
 
 	setLinearCurve(secondTablesContainer.data.secondVeBlendBins, 0, 100);
 	setLinearCurve(secondTablesContainer.data.secondVeBlendValues, 0, 100);
 
-	setRpmTableBin(secondTablesContainer.data.secondIgnitionRpmBins);
-	setLinearCurve(secondTablesContainer.data.secondIgnitionLoadBins, 20, 120, 3);
-	setTable(secondTablesContainer.data.secondIgnitionTable, 30);
+	copyTable(secondTablesContainer.data.secondIgnitionTable, config->ignitionTable);
+	copyArray(secondTablesContainer.data.secondIgnitionLoadBins, config->ignitionLoadBins);
+	copyArray(secondTablesContainer.data.secondIgnitionRpmBins, config->ignitionRpmBins);
 
 	setLinearCurve(secondTablesContainer.data.secondIgnitionBlendBins, 0, 100);
 	setLinearCurve(secondTablesContainer.data.secondIgnitionBlendValues, 0, 100);

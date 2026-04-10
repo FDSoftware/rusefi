@@ -14,20 +14,28 @@
 #include <rusefi/crc.h>
 
 // Verify that initSecondTables populates sane defaults (unit-test path).
-TEST(SecondTables, DefaultsAreApplied) {
+// The second tables should be copies of the primary tables.
+TEST(SecondTables, DefaultsCopyPrimaryTables) {
 	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
 
-	// initSecondTables is called during engine init — verify state.
 	page4_s* state = secondTablesGetState();
 	ASSERT_NE(state, nullptr);
 
-	// Default VE table should be all 80
-	EXPECT_NEAR(state->secondVeTable[0][0], 80, EPS4D);
-	EXPECT_NEAR(state->secondVeTable[7][7], 80, EPS4D);
+	// Second VE table should match primary VE table
+	EXPECT_NEAR(state->secondVeTable[0][0], config->veTable[0][0], EPS4D);
+	EXPECT_NEAR(state->secondVeTable[7][7], config->veTable[7][7], EPS4D);
 
-	// Default ignition table should be all 30
-	EXPECT_NEAR(state->secondIgnitionTable[0][0], 30, EPS4D);
-	EXPECT_NEAR(state->secondIgnitionTable[7][7], 30, EPS4D);
+	// Second VE bins should match primary bins
+	EXPECT_EQ(state->secondVeRpmBins[0], config->veRpmBins[0]);
+	EXPECT_EQ(state->secondVeLoadBins[0], config->veLoadBins[0]);
+
+	// Second ignition table should match primary ignition table
+	EXPECT_NEAR(state->secondIgnitionTable[0][0], config->ignitionTable[0][0], EPS4D);
+	EXPECT_NEAR(state->secondIgnitionTable[7][7], config->ignitionTable[7][7], EPS4D);
+
+	// Second ignition bins should match primary bins
+	EXPECT_EQ(state->secondIgnitionRpmBins[0], config->ignitionRpmBins[0]);
+	EXPECT_EQ(state->secondIgnitionLoadBins[0], config->ignitionLoadBins[0]);
 
 	// Blend curves should span 0-100
 	EXPECT_NEAR(state->secondVeBlendBins[0], 0, EPS4D);
@@ -150,6 +158,6 @@ TEST(SecondTables, ReinitPreservesState) {
 	// The TunerStudio-visible state should still have our modification.
 	EXPECT_NEAR(state->secondVeTable[2][3], 42, EPS4D);
 
-	// Other defaults should remain unchanged.
-	EXPECT_NEAR(state->secondVeTable[0][0], 80, EPS4D);
+	// Other defaults should remain unchanged (copy of primary table).
+	EXPECT_NEAR(state->secondVeTable[0][0], config->veTable[0][0], EPS4D);
 }
