@@ -26,9 +26,10 @@ void loadExtraPage(StorageItemId id) {
 
 void burnExtraFlashPages() {
 #if EFI_PROD_CODE
+	secondTablesPrepareForStorage();
 	storageWrite(EFI_SECOND_TABLES_RECORD_ID,
-		static_cast<const uint8_t*>(secondTablesGetTsPage()),
-		secondTablesGetTsPageSize());
+		secondTablesGetStoragePtr(),
+		secondTablesGetStorageSize());
 
 	// When extracting a new config page from the main config, add a
 	// storageWrite() call here
