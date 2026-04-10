@@ -26,25 +26,30 @@
 // before the assert needs increasing again.
 //
 // NOTE: This piggyback approach requires page 4 to land inside the same flash sector that
-// the main-config write erases.  On STM32F7 DualBank-2MB boards (e.g. uaefi-pro)
-// the primary-settings region starts at sector 12 (16 KB sectors); a 72 KB
-// offset falls in sector 15 which is never erased by the main-config writing.  Those boards
-// always have an SD card, so page 4 is persisted there instead.  We detect this case with
-// mcuCanFlashWhileRunning() — true only on DualBank-2MB — and return address 0 to
-// signal "not supported" for INT_FLASH page 4 storage on those devices.
+// the main-config write erases.  On STM32F7 DualBank-2MB boards without extended flash
+// (e.g. alphax-4K-GDI, uaefi-pro) the primary-settings region starts at sector 12
+// (16 KB sectors); a 72 KB offset would fall outside the erased range AND inside the
+// region overwritten by the backup copy — making both store and read broken.  Those
+// boards always carry an SD card, so page 4 is persisted there instead.
+// We gate this at compile time with STM32F7XX && !EFI_FLASH_USE_1500_OF_2MB.
+// STM32H743 (also dual-bank / mcuCanFlashWhileRunning) has 128 KB sectors, so the
+// piggyback works there and must NOT be disabled.
 static constexpr size_t PAGE4_SECTOR_OFFSET = 72u * 1024u;
 static_assert(sizeof(persistent_config_container_s) <= PAGE4_SECTOR_OFFSET,
 	"persistent_config_container_s exceeds PAGE4_SECTOR_OFFSET — increase the offset");
 
 static flashaddr_t getFlashAddrPage4() {
-	// DualBank-2MB boards have 16KB config sectors; page4 at PAGE4_SECTOR_OFFSET would
-	// land outside the region erased by the main-config write.  Return 0 so that
-	// isIdSupported() rejects EFI_SECOND_TABLES_RECORD_ID for this backend.
-	if (mcuCanFlashWhileRunning()) {
-		return 0;
-	}
+#if defined(STM32F7XX) && !defined(EFI_FLASH_USE_1500_OF_2MB)
+	// STM32F7 DualBank-2MB (without the extended-flash layout) places the primary
+	// settings at sector 12 — a region of 16 KB sectors.  Page 4 at 72 KB would
+	// land outside the sectors erased by the main-config write, AND inside the
+	// region overwritten by the backup copy — so both store and read are broken.
+	// These boards always? carry an SD card; page 4 is persisted there instead.
+	return 0;
+#else
 	const uintptr_t first = getFlashAddrFirstCopy();
 	return first ? (first + PAGE4_SECTOR_OFFSET) : 0;
+#endif
 }
 
 class SettingStorageFlash : public SettingStorageBase {
