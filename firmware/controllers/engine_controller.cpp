@@ -496,6 +496,7 @@ void commonInitEngineController() {
 #if EFI_LTFT_CONTROL
 	initLtft();
 #endif
+	initSecondTables();
 }
 
 PUBLIC_API_WEAK bool validateBoardConfig() {
@@ -570,8 +571,8 @@ bool validateConfigOnStartUpOrBurn() {
 		ensureArrayIsAscending("VE load", config->veLoadBins);
 		ensureArrayIsAscending("VE RPM", config->veRpmBins);
 
-  		ensureArrayIsAscending("Second VE load", config->secondVeLoadBins);
-  		ensureArrayIsAscending("Second VE RPM", config->secondVeRpmBins);
+  		ensureArrayIsAscending("Second VE load", secondTablesGetState()->secondVeLoadBins);
+  		ensureArrayIsAscending("Second VE RPM", secondTablesGetState()->secondVeRpmBins);
 
 		ensureArrayIsAscending("Lambda/AFR load", config->lambdaLoadBins);
 		ensureArrayIsAscending("Lambda/AFR RPM", config->lambdaRpmBins);
@@ -612,8 +613,8 @@ bool validateConfigOnStartUpOrBurn() {
 		ensureArrayIsAscending("Ignition load", config->ignitionLoadBins);
 		ensureArrayIsAscending("Ignition RPM", config->ignitionRpmBins);
 
-		ensureArrayIsAscending("Second Ignition load", config->secondIgnitionLoadBins);
-		ensureArrayIsAscending("Second Ignition RPM", config->secondIgnitionRpmBins);
+		ensureArrayIsAscending("Second Ignition load", secondTablesGetState()->secondIgnitionLoadBins);
+		ensureArrayIsAscending("Second Ignition RPM", secondTablesGetState()->secondIgnitionRpmBins);
 		ensureArrayIsAscendingOrDefault("Ign Trim Rpm", config->ignTrimRpmBins);
    		ensureArrayIsAscendingOrDefault("Ign Trim Load", config->ignTrimLoadBins);
 
