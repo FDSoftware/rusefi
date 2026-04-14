@@ -97,7 +97,7 @@ static bool storageWriteID(uint32_t id) {
 		engine->module<LongTermFuelTrim>()->store();
 		return true;
 	} else if (id == EFI_SECOND_TABLES_RECORD_ID) {
-		burnExtraFlashPage(id);
+		burnExtraFlashPage(EFI_SECOND_TABLES_RECORD_ID);
 		return true;
 	} else {
 		efiPrintf("Requested to write unknown record id %ld", id);
@@ -114,7 +114,7 @@ static bool storageReadID(uint32_t id) {
 		engine->module<LongTermFuelTrim>()->load();
 		return true;
 	} else if (id == EFI_SECOND_TABLES_RECORD_ID) {
-		loadExtraPage(id);
+		loadExtraPage(EFI_SECOND_TABLES_RECORD_ID);
 		return true;
 	} else {
 		efiPrintf("Requested to read unknown record id %ld", id);
