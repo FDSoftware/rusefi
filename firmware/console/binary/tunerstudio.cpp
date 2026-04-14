@@ -83,6 +83,7 @@
 
 #include "main_trigger_callback.h"
 #include "flash_main.h"
+#include "extra_flash_pages.h"
 
 #include "tunerstudio_io.h"
 #include "malfunction_central.h"
@@ -513,7 +514,7 @@ static void handleBurnCommand(TsChannelBase* tsChannel, uint16_t page) {
 	} else if (page == TS_PAGE_SCATTER_OFFSETS) {
 		/* do nothing */
 	} else if (page == TS_PAGE_SECOND_TABLES) {
-		secondTablesBurn();
+		burnExtraFlashPage(EFI_SECOND_TABLES_RECORD_ID);
 	} else {
 		sendErrorCode(tsChannel, TS_RESPONSE_OUT_OF_RANGE, "ERROR: Burn invalid page");
 		return;

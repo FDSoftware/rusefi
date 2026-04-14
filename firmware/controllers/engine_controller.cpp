@@ -496,7 +496,6 @@ void commonInitEngineController() {
 #if EFI_LTFT_CONTROL
 	initLtft();
 #endif
-	initSecondTables();
 }
 
 PUBLIC_API_WEAK bool validateBoardConfig() {

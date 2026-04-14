@@ -9,6 +9,7 @@
 #include "pch.h"
 
 #include "storage.h"
+#include "extra_flash_pages.h"
 
 #if EFI_CONFIGURATION_STORAGE
 #include "mpu_util.h"
@@ -96,7 +97,7 @@ static bool storageWriteID(uint32_t id) {
 		engine->module<LongTermFuelTrim>()->store();
 		return true;
 	} else if (id == EFI_SECOND_TABLES_RECORD_ID) {
-		secondTablesBurn();
+		burnExtraFlashPage(id);
 		return true;
 	} else {
 		efiPrintf("Requested to write unknown record id %ld", id);
@@ -113,7 +114,7 @@ static bool storageReadID(uint32_t id) {
 		engine->module<LongTermFuelTrim>()->load();
 		return true;
 	} else if (id == EFI_SECOND_TABLES_RECORD_ID) {
-		initSecondTables();
+		loadExtraPage(id);
 		return true;
 	} else {
 		efiPrintf("Requested to read unknown record id %ld", id);
