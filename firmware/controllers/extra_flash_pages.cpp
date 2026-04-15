@@ -82,19 +82,3 @@ void burnExtraFlashPage(StorageItemId id) {
 	(void)id;
 #endif // EFI_PROD_CODE
 }
-
-void* getExtraPageAddr(StorageItemId id) {
-	(void)id;
-
-	// When extracting a new config page from the main config, add an
-	// if/else-if branch here returning the page's TS data pointer
-	return nullptr;
-}
-
-size_t getExtraPageSize(StorageItemId id) {
-	(void)id;
-
-	// When extracting a new config page from the main config, add an
-	// if/else-if branch here returning the page's TS data size
-	return 0;
-}
