@@ -9,21 +9,33 @@
 #include "extra_flash_pages.h"
 #include "second_tables.h"
 #include "flash_main.h"
+#include "persistent_configuration.h"
+
+// Page 4 lives at a fixed offset within the primary settings sector.
+// A fixed offset is critical: if the offset were derived from sizeof(persistent_config_container_s)
+// it would shift whenever the config struct grows, causing the read address to change across
+// firmware updates and corrupting stored page 4 data.
+// 72 KB (73728 bytes) satisfies STM32H7's 32-byte flash-word alignment (73728 % 32 == 0),
+// fits within a 128 KB flash sector alongside page 4 (73728 + ~1216 < 131072),
+// and leaves ~8 KB of headroom above the current largest config (proteus_f7 at 65308 bytes).
+static constexpr size_t PAGE4_SECTOR_OFFSET = 72u * 1024u;
+static_assert(sizeof(persistent_config_container_s) <= PAGE4_SECTOR_OFFSET,
+	"persistent_config_container_s exceeds PAGE4_SECTOR_OFFSET — increase the offset");
 
 void loadExtraPages() {
-	initSecondTables();
+	loadSecondTables();
 
-	// When extracting a new config page from the main config, add an
-	// initXxx() call here
+	// When extracting a new config page from the main config, add a
+	// loadXxx() call here
 }
 
 void loadExtraPage(StorageItemId id) {
 	if (id == EFI_SECOND_TABLES_RECORD_ID) {
-		initSecondTables();
+		loadSecondTables();
 	}
 
 	// When extracting a new config page from the main config, add an
-	// if/else-if branch here dispatching to initXxx()
+	// if/else-if branch here dispatching to loadXxx()
 }
 
 void burnExtraFlashPages() {
@@ -81,4 +93,14 @@ void burnExtraFlashPage(StorageItemId id) {
 #else
 	(void)id;
 #endif // EFI_PROD_CODE
+}
+
+size_t getExtraPageFlashOffset(StorageItemId id) {
+	if (id == EFI_SECOND_TABLES_RECORD_ID) {
+		return PAGE4_SECTOR_OFFSET;
+	}
+
+	// When adding a new extra page, add an else-if branch here
+	// returning its sector offset.
+	return 0;
 }
