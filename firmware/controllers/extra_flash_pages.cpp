@@ -38,6 +38,26 @@ void burnExtraFlashPages() {
 #endif // EFI_PROD_CODE
 }
 
+void* getExtraPageAddr(StorageItemId id) {
+	if (id == EFI_SECOND_TABLES_RECORD_ID) {
+		return secondTablesGetTsPage();
+	}
+
+	// When extracting a new config page from the main config, add an
+	// else-if branch here
+	return nullptr;
+}
+
+size_t getExtraPageSize(StorageItemId id) {
+	if (id == EFI_SECOND_TABLES_RECORD_ID) {
+		return secondTablesGetTsPageSize();
+	}
+
+	// When extracting a new config page from the main config, add an
+	// else-if branch here
+	return 0;
+}
+
 void burnExtraFlashPage(StorageItemId id) {
 #if EFI_PROD_CODE
 #if (EFI_STORAGE_INT_FLASH == TRUE) && (EFI_STORAGE_MFS != TRUE)
