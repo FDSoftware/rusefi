@@ -17,7 +17,7 @@
  *   static ExtraPageContainer<my_page_s, 1> myContainer;
  */
 template <typename TData, uint32_t DataVersion>
-struct ExtraPageContainer {
+struct alignas(32) ExtraPageContainer {
 	uint32_t version;
 	TData data;
 	uint32_t crc;
@@ -38,7 +38,7 @@ struct ExtraPageContainer {
 
 /**
  * Load all extra pages from storage into RAM.
- * Called unconditionally at startup (before TunerStudio starts), like the main config.
+ * Called unconditionally at startup (before TunerStudio starts), like the main config
  *
  * To add a new extra page: add one initXxx() call in extra_flash_pages.cpp.
  * rusefi.cpp never needs to change.
@@ -46,8 +46,7 @@ struct ExtraPageContainer {
 void loadExtraPages();
 
 /**
- * Load a single extra page by storage record ID.
- * Called from storageReadID() when the storage thread processes an on-demand read.
+ * Reload a single extra page from storage by record ID.
  */
 void loadExtraPage(StorageItemId id);
 
@@ -81,3 +80,13 @@ void burnExtraFlashPage(StorageItemId id);
  */
 void* getExtraPageAddr(StorageItemId id);
 size_t getExtraPageSize(StorageItemId id);
+
+/**
+ * Flash storage support — used by storage_flash.cpp for address mapping.
+ * Returns the byte offset within the primary settings sector for the given
+ * extra page, or 0 if the ID is not a flash-backed extra page.
+ *
+ * When adding a new extra page, add its offset here so that
+ * storage_flash.cpp picks it up automatically.
+ */
+size_t getExtraPageFlashOffset(StorageItemId id);
