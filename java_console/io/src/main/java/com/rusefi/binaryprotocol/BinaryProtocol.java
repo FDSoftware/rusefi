@@ -692,6 +692,25 @@ public class BinaryProtocol {
         stream.close();
     }
 
+    /**
+     * Burn a specific page.  pageId is the firmware TS_PAGE_* constant
+     * (e.g. 0x0400 for the lua page).  Returns true on success.  Used by
+     * LuaScriptPanel after writing the script so the firmware persists it
+     * to flash on the new modular-config layout.
+     */
+    public boolean burnPage(int pageId) {
+        long start = System.currentTimeMillis();
+        while (!stream.isClosed() && (System.currentTimeMillis() - start < Timeouts.BINARY_IO_TIMEOUT)) {
+            if (BurnCommand.executePage(this, pageId)) {
+                log.info("BURN page=0x" + Integer.toHexString(pageId) + " OK");
+                return true;
+            }
+            log.warn("BURN page=0x" + Integer.toHexString(pageId) + " failed, will retry");
+        }
+        log.error("Burn page=0x" + Integer.toHexString(pageId) + " timed out");
+        return false;
+    }
+
     public void setConfigurationImage(ConfigurationImage configurationImage) {
         state.setConfigurationImage(configurationImage);
     }

@@ -9,6 +9,7 @@
 #include "lua_heap.h"
 #include "lua_hooks.h"
 #include "can_filter.h"
+#include "lua_script_page.h"
 
 #define TAG "LUA "
 
@@ -195,6 +196,10 @@ static void resetLua() {
 
 static bool needsReset = false;
 
+void requestLuaReset() {
+	needsReset = true;
+}
+
 // Each invocation of runOneLua will:
 // - create a new Lua instance
 // - read the script from config
@@ -250,7 +255,7 @@ static bool runOneLua(lua_Alloc alloc, const char* script) {
 
 void LuaThread::ThreadTask() {
 	while (!chThdShouldTerminateX()) {
-		bool wasOk = runOneLua(luaHeapAlloc, config->luaScript);
+		bool wasOk = runOneLua(luaHeapAlloc, luaScriptPageGetState()->luaScript);
 
 		auto usedAfterRun = luaHeapUsed();
 		if (usedAfterRun != 0) {
@@ -303,7 +308,7 @@ void startLua() {
 	});
 
 	addConsoleAction("luareset", [](){
-		needsReset = true;
+		requestLuaReset();
 	});
 
 	addConsoleAction("luamemory", [](){

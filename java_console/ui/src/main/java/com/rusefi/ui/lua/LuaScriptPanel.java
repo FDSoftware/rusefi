@@ -286,7 +286,8 @@ public class LuaScriptPanel {
             // The main image only holds page 0, so fetch directly from the ECU.
             scriptArr = bp.readFromPage(luaScript.getPageIndex(), luaScript.getOffset(), luaScript.getSize());
             if (scriptArr == null) {
-                setText("Failed to read luaScript from page " + luaScript.getPageIndex());
+                setText("Failed to read luaScript from page 0x" + Integer.toHexString(luaScript.getPageIndex())
+                    + " — possibly an .ini/firmware mismatch (.ini expects new modular layout but firmware is older).");
                 return;
             }
         }
@@ -332,19 +333,25 @@ public class LuaScriptPanel {
 
             byte[] paddedScript = getScriptBytes(field, script);
 
-            log.info("Sending " + field + " page=" + field.getPageIndex());
+            log.info("Sending " + field + " page=0x" + Integer.toHexString(field.getPageIndex()));
             bp.writeInBlocks(paddedScript, 0, field.getOffset(), paddedScript.length, field.getPageIndex());
 
-// need a way to modify script on the fly with shorter execution gaps to keep E65 CAN network happy
-// todo: auto-burn on console close check box in case of Lua changes?
-// todo: check box for auto-burn?
-//            bp.burn();
-
-            // On new firmware (luaScript on its own page), the TS burn handler calls
-            // requestLuaReset() automatically — but we don't auto-burn here.
-            // On old firmware (page 0) the burn would re-flash the whole calibration,
-            // which is what luareset-via-console avoids.  Keep manual reset for parity.
-            resetLua();
+            if (field.getPageIndex() == 0) {
+                // Old layout: luaScript lives in the main config page.  We cannot
+                // burn here without re-flashing the whole calibration — caller hits
+                // the "Burn to ECU" button if they want persistence.  resetLua to
+                // pick up the new RAM contents without persisting.
+                resetLua();
+            } else {
+                // New layout: luaScript is on its own page (e.g. page 5 / pageId 0x0400).
+                // Burn that page directly — firmware's burn handler calls
+                // requestLuaReset() automatically, so no separate reset is needed.
+                if (!bp.burnPage(field.getPageIndex())) {
+                    log.warn("burnPage failed for pageId=0x" + Integer.toHexString(field.getPageIndex())
+                        + " — falling back to luareset (script will run from RAM but will not persist).");
+                    resetLua();
+                }
+            }
         });
         // resume messages on 'write new script to ECU'
         mp.setPaused(false);

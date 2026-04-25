@@ -447,8 +447,13 @@ public class IniFileReader {
     }
 
     private void registerField(IniField field) {
-        // ini file uses 1-based page numbering; TS protocol pageIdentifier is 0-based.
-        field.setPageIndex(currentPageIndex - 1);
+        // Encode the TS-protocol page identifier matching the firmware's TS_PAGE_*
+        // constants (0x0000 main, 0x0100 scatter, 0x0200 LTFT, 0x0300 second tables,
+        // 0x0400 lua, ...).  The ini's pageIdentifier `"\x00\x04"` is little-endian
+        // 0x0400, which the firmware's `case TS_PAGE_*:` switch compares against
+        // directly — so we must pass that pre-shifted value through the write/read
+        // chain, not the integer page number.
+        field.setPageIndex((currentPageIndex - 1) << 8);
         if (currentPageIndex != 1) {
             log.info("Skipping field from secondary page: " + field);
             secondaryIniFields.put(field.getName(), field);
