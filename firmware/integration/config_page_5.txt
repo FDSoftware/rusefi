@@ -1,0 +1,8 @@
+! note: PlainConfigHandler isolates the custom types created on rusefi_config.txt so we need to duplicate it here :c
+! LUA_SCRIPT_SIZE default here; board prepends (processed first) override via first-wins semantics in VariableRegistry.doRegister
+#define LUA_SCRIPT_SIZE 8000
+custom lua_script_t @@LUA_SCRIPT_SIZE@@ string, ASCII, @OFFSET@, @@LUA_SCRIPT_SIZE@@
+
+struct_no_prefix page5_s
+	lua_script_t luaScript;
+end_struct

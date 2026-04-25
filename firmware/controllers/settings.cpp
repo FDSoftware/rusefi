@@ -7,6 +7,7 @@
  */
 
 #include "pch.h"
+#include "lua_script_page.h"
 
 #if ! EFI_UNIT_TEST
 
@@ -767,5 +768,6 @@ void setEngineType(int value, bool isWriteToFlash) {
 }
 
 void setLuaScript(const char *luaScript) {
-	strncpy(config->luaScript, luaScript, efi::size(config->luaScript) - 1);
+	auto* dst = luaScriptPageGetState()->luaScript;
+	strncpy(dst, luaScript, efi::size(luaScriptPageGetState()->luaScript) - 1);
 }

@@ -14,6 +14,7 @@
 #define TS_PAGE_SCATTER_OFFSETS		0x0100
 #define TS_PAGE_LTFT_TRIMS			0x0200
 #define TS_PAGE_SECOND_TABLES		0x0300
+#define TS_PAGE_LUA_SCRIPT			0x0400
 
 typedef struct {
 	int queryCommandCounter;

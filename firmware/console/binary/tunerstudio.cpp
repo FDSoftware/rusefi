@@ -84,6 +84,9 @@
 #include "main_trigger_callback.h"
 #include "flash_main.h"
 #include "extra_flash_pages.h"
+#if EFI_LUA
+#include "rusefi_lua.h"
+#endif
 
 #include "tunerstudio_io.h"
 #include "malfunction_central.h"
@@ -209,6 +212,8 @@ static uint8_t* getWorkingPageAddr(TsChannelBase* tsChannel, size_t page, size_t
 #endif
 	case TS_PAGE_SECOND_TABLES:
 		return static_cast<uint8_t*>(getExtraPageAddr(EFI_SECOND_TABLES_RECORD_ID)) + offset;
+	case TS_PAGE_LUA_SCRIPT:
+		return static_cast<uint8_t*>(getExtraPageAddr(EFI_LUA_SCRIPT_RECORD_ID)) + offset;
 	default:
 		tunerStudioError(tsChannel, "ERROR: page address out of range");
 		return nullptr;
@@ -233,6 +238,8 @@ static constexpr size_t getTunerStudioPageSize(size_t page) {
 #endif
 	case TS_PAGE_SECOND_TABLES:
 		return getExtraPageSize(EFI_SECOND_TABLES_RECORD_ID);
+	case TS_PAGE_LUA_SCRIPT:
+		return getExtraPageSize(EFI_LUA_SCRIPT_RECORD_ID);
 	default:
 		return 0;
 	}
@@ -515,6 +522,13 @@ static void handleBurnCommand(TsChannelBase* tsChannel, uint16_t page) {
 		/* do nothing */
 	} else if (page == TS_PAGE_SECOND_TABLES) {
 		burnExtraFlashPage(EFI_SECOND_TABLES_RECORD_ID);
+	} else if (page == TS_PAGE_LUA_SCRIPT) {
+		burnExtraFlashPage(EFI_LUA_SCRIPT_RECORD_ID);
+#if EFI_LUA
+		// Signal the Lua thread to restart so it picks up the newly-burned script
+		// without requiring the user to invoke the "luareset" console action.
+		requestLuaReset();
+#endif
 	} else {
 		sendErrorCode(tsChannel, TS_RESPONSE_OUT_OF_RANGE, "ERROR: Burn invalid page");
 		return;
