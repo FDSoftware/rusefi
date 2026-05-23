@@ -13,10 +13,21 @@ EFI_ETHERNET = yes
 ifeq (,$(findstring EFI_BOOTLOADER,$(DDEFS)))
 	LWIP = yes
 	DDEFS += -DCH_CFG_USE_DYNAMIC=TRUE
+	# After OpenBLT exits, the Ethernet DMA is still running with the bootloader's
+	# descriptor ring. STM32_MAC_DMABMR_SR issues a full DMA software reset in
+	# mac_lld_start() before new descriptors are programmed, ensuring a clean state.
+	# Only needed in the main app; the bootloader always starts from a clean DMA state.
+	DDEFS += -DSTM32_MAC_DMABMR_SR=TRUE
 endif
 
-# Fix stuck in mac_lld_start() in main app
+# Avoid TX-flush hang in mac_lld_start() on F767 silicon.
 DDEFS += -DSTM32_MAC_DISABLE_TX_FLUSH=TRUE
+
+# Prevent bootloader's mac_lld_init() from powering down the PHY.
+# If the PHY is powered down, it stops generating the 50 MHz RMII reference clock,
+# causing the main app's mac_lld_start() to hang forever waiting for ETH_DMABMR_SR
+# to self-clear (DMA reset requires the RMII clock).
+DDEFS += -DSTM32_MAC_ETH1_CHANGE_PHY_STATE=FALSE
 
 # Both LWIP and uIP cause few shadow errors
 ALLOW_SHADOW = yes
