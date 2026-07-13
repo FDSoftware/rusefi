@@ -65,12 +65,12 @@ public class RealIniFileProvider implements IniFileProvider {
             String message = "Failed to download " + signature + " maybe custom board?";
             log.info(message);
             statusConsumer.logLine(message);
-            // 4th option: current folder
-            localIniFile = IniLocator.findIniFile(".");
+            // 4th option: current folder (prefer the .ini whose signature matches this board)
+            localIniFile = IniLocator.findIniFile(".", signature);
         }
         if (localIniFile == null) {
             // 5th option: one level up or environment variable direction
-            localIniFile = IniLocator.findIniFile(IniFileReader.INI_FILE_PATH);
+            localIniFile = IniLocator.findIniFile(IniFileReader.INI_FILE_PATH, signature);
         }
         if (localIniFile == null && manualPicker != null && !declinedSignatures.contains(signature)) {
             // 6th option: ask the user to point at a local .ini and cache it for next time.
