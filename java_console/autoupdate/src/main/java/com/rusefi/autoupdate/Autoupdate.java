@@ -681,9 +681,9 @@ public class Autoupdate {
      *
      * @return local zip path, or null on error
      */
-    private static String downloadZipForTarget(BundleInfo info, String baseUrl,
-                                               ConnectionAndMeta.DownloadProgressListener progressListener,
-                                               Consumer<String> logger) {
+    public static String downloadZipForTarget(BundleInfo info, String baseUrl,
+                                              ConnectionAndMeta.DownloadProgressListener progressListener,
+                                              Consumer<String> logger) {
         // The universal console cannot know prior whether a given board ships open or obfuscated
         // firmware. Try the public zip first and fall back to the obfuscated one - whichever the server has. #9714
         String zip = downloadZipForTarget(info, baseUrl, progressListener, logger, false);

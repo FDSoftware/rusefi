@@ -48,6 +48,7 @@ sandbox class also carries a brief comment on top describing what it does.
 | Sandbox | Purpose |
 | --- | --- |
 | `AutoupdateSandbox` | Downloads and unzips the autoupdate bundle. |
+| `ScanAndUpdateBoardSandbox` | Full scan-and-update cycle: auto-detects an ECU on serial, and if its board is on the board_compatibility allowlist downloads that board's bundle, reboots the ECU to OpenBLT and flashes the fresh .srec. |
 | `TsPluginInstallerSandbox` | Installs the TunerStudio plugin. |
 | `FirmwareUpdateTabSandbox` | Visual sandbox for the firmware update tab. |
 | `HwSandbox` | Runs hardware-in-the-loop tests against a real ECU. |
