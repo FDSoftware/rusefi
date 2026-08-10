@@ -48,6 +48,8 @@ public class TuneBackupUtil {
             tune.writeXmlFile(xmlFileName);
         } catch (final OrdinalOutOfRangeException e) {
             log.warn("OrdinalOutOfRangeException exception on saving .msq file:" + e, e);
+        } catch (Exception e) {
+            log.warn("exception on saving .msq file:" + e, e);
             throw e;
         }
     }
