@@ -13,9 +13,10 @@ import com.rusefi.io.serial.RateCounter;
 import com.rusefi.io.tcp.BinaryProtocolServer;
 import com.rusefi.ui.StatusConsumer;
 import org.jetbrains.annotations.Nullable;
-import peak.can.basic.*;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.util.Optional;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -27,7 +28,7 @@ public class PCanIoStream extends AbstractIoStream {
     static Logging log = getLogging(PCanIoStream.class);
 
     private final IncomingDataBuffer dataBuffer;
-    private final PCANBasic can;
+    private final RawCanPort can;
     private final StatusConsumer statusListener;
 
     private final RateCounter totalCounter = new RateCounter();
@@ -53,10 +54,14 @@ public class PCanIoStream extends AbstractIoStream {
     }
 
     public static PCanIoStream createStream(StatusConsumer statusListener) {
-        PCANBasic can = PCanHelper.create();
-        TPCANStatus status = PCanHelper.init(can);
-        if (status != TPCANStatus.PCAN_ERROR_OK) {
-            statusListener.logLine("Error initializing PCAN: " + status);
+        return createStream(statusListener, new PCanRawPort());
+    }
+
+    static PCanIoStream createStream(StatusConsumer statusListener, RawCanPort can) {
+        try {
+            can.open(new CanAddress(CAN_ECU_SERIAL_TX_ID, false));
+        } catch (IOException e) {
+            statusListener.logLine("Error initializing PCAN: " + e.getMessage());
             return null;
         }
         statusListener.logLine("Creating PCAN stream...");
@@ -64,21 +69,24 @@ public class PCanIoStream extends AbstractIoStream {
     }
 
     private void sendCanPacket(byte[] payLoad) {
-        if (log.debugEnabled())
+        if (log.debugEnabled()) {
             log.debug("-------sendIsoTp " + payLoad.length + " byte(s):");
+        }
 
-        if (log.debugEnabled())
+        if (log.debugEnabled()) {
             log.debug("Sending " + HexBinary.printHexBinary(payLoad));
+        }
 
-        TPCANStatus status = PCanHelper.send(can, isoTpConnector.canId(), payLoad);
-        if (status != TPCANStatus.PCAN_ERROR_OK) {
-            statusListener.logLine("Unable to write the CAN message: " + status);
-            System.exit(0);
+        try {
+            can.send(new ClassicCanFrame(new CanAddress(isoTpConnector.canId(), false), payLoad));
+        } catch (IOException e) {
+            statusListener.logLine("Unable to write the CAN message: " + e.getMessage());
+            throw new UncheckedIOException(e);
         }
 //        log.info("Send OK! length=" + payLoad.length);
     }
 
-    private PCanIoStream(PCANBasic can, StatusConsumer statusListener) {
+    private PCanIoStream(RawCanPort can, StatusConsumer statusListener) {
         this.can = can;
         this.statusListener = statusListener;
         dataBuffer = createDataBuffer();
@@ -86,7 +94,11 @@ public class PCanIoStream extends AbstractIoStream {
 
     @Override
     public void write(byte[] bytes) throws IOException {
-        IsoTpConnector.sendStrategy(bytes, isoTpConnector);
+        try {
+            IsoTpConnector.sendStrategy(bytes, isoTpConnector);
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
     }
 
     @Override
@@ -94,37 +106,56 @@ public class PCanIoStream extends AbstractIoStream {
         Executor threadExecutor = Executors.newSingleThreadExecutor(BinaryProtocolServer.getThreadFactory("PCAN reader"));
         threadExecutor.execute(() -> {
             while (!isClosed()) {
-                readOnePacket(listener);
+                try {
+                    readOnePacket(listener);
+                } catch (IOException e) {
+                    if (!isClosed()) {
+                        statusListener.logLine("Unable to read the CAN message: " + e.getMessage());
+                        log.error("PCAN read failed", e);
+                        close();
+                    }
+                }
             }
         });
     }
 
-    private void readOnePacket(DataListener listener) {
-        // todo: can we reuse instance?
-        // todo: should be? TPCANMsg rx = new TPCANMsg();
-        // https://github.com/rusefi/rusefi/issues/4370 nasty work-around
-        TPCANMsg rx = new TPCANMsg(Byte.MAX_VALUE);
-        TPCANStatus status = can.Read(PCanHelper.CHANNEL, rx, null);
-        if (status == TPCANStatus.PCAN_ERROR_OK) {
+    private void readOnePacket(DataListener listener) throws IOException {
+        Optional<ClassicCanFrame> received = can.receive(100);
+        if (received.isPresent()) {
+            ClassicCanFrame frame = received.get();
             totalCounter.add();
-            if (rx.getID() != CAN_ECU_SERIAL_TX_ID) {
+            if (frame.getAddress().isExtended() || frame.getAddress().getId() != CAN_ECU_SERIAL_TX_ID) {
 //                if (log.debugEnabled())
                 logSkipRate ++;
                 if (logSkipRate % INFO_SKIP_RATE == 0) {
-                    PCanHelper.debugPacket(rx);
-                    log.info("Skipping non " + String.format("%X", CAN_ECU_SERIAL_TX_ID) + " packet: " + String.format("%X", rx.getID()));
+                    log.info("Skipping non " + String.format("%X", CAN_ECU_SERIAL_TX_ID)
+                        + " packet: " + frame.getAddress());
                     log.info("Total rate " + totalCounter.getCurrentRate() + ", isotp rate " + isoTpCounter.getCurrentRate());
                 }
                 return;
             }
-            PCanHelper.debugPacket(rx);
             isoTpCounter.add();
-            byte[] decode = canDecoder.decodePacket(rx.getData());
+            final byte[] decode;
+            try {
+                decode = canDecoder.decodePacket(frame.getPayload());
+            } catch (UncheckedIOException e) {
+                throw e.getCause();
+            }
             listener.onDataArrived(decode);
+        }
+    }
 
-            //            log.info("Decoded " + IoStream.printByteArray(decode));
-        } else {
-//                   log.info("Receive " + status);
+    @Override
+    public synchronized void close() {
+        if (isClosed()) {
+            return;
+        }
+        super.close();
+        try {
+            can.close();
+        } catch (IOException e) {
+            statusListener.logLine("Unable to close PCAN: " + e.getMessage());
+            log.error("PCAN close failed", e);
         }
     }
 
@@ -135,7 +166,7 @@ public class PCanIoStream extends AbstractIoStream {
 
     @Override
     public String toString() {
-        return "PCanIoStream{" + PCanHelper.CHANNEL + ", " +
+        return "PCanIoStream{" +
             "totalCounter=" + totalCounter +
             '}';
     }
