@@ -1,137 +1,90 @@
-name: Unit Tests
-
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
+name: Kawasaki replay Memcheck A/B
+on: workflow_dispatch
+permissions:
+  contents: read
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    permissions:
-      # A permissions block resets every unlisted scope to none. contents: read is
-      # required for checkout on a private repository; actions: read lets the coverage
-      # report download the baseline artifact from an earlier run.
-      contents: read
-      actions: read
-      pull-requests: write
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-
+  benchmark:
+    if: github.repository == 'FDSoftware/rusefi' || github.repository == 'CarpinchoEngineer/rusefi'
+    runs-on: ${{ github.repository == 'CarpinchoEngineer/rusefi' && 'blacksmith-4vcpu-ubuntu-2604' || 'ubuntu-latest' }}
+    timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: rusefi/rusefi
+          ref: b48ba88c805e85380ad833b35da9875fe59c1c9c
+          persist-credentials: false
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/submodule-init
+        with:
+          chibios: 'false'
+      - name: Install Linux unit-test dependencies
+        run: |
+          sudo bash misc/actions/add-ubuntu-latest-apt-mirrors.sh
+          sudo bash misc/actions/ubuntu-install-tools.sh
+          bash misc/actions/install-valgrind.sh
+      - name: Build one Memcheck binary for both arms
+        working-directory: unit_tests
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("tests/trigger/test_real_kawasaki_8_minus_1.cpp")
+          s = p.read_text()
+          anchor = "\tCsvReader reader(1, /* vvtCount */ 0);"
+          assert s.count(anchor) == 1
+          p.write_text(s.replace('#include "logicdata_csv_reader.h"', '#include "logicdata_csv_reader.h"\n#include <cstdlib>')
+                        .replace(anchor, '\tScopedUnitTestCreateLogs logs(std::getenv("KAWASAKI_NO_LOGS") == nullptr);\n' + anchor))
+          PY
+          make -j4 docs-enums
+          make -j4 config
+          ./make_for_valgrind.sh
+          sha256sum build/rusefi_test
+          valgrind --version
+      - name: Measure logging on / off / off / on
+        working-directory: unit_tests
+        env:
+          GTEST_FILTER: realKawasaki8minus1.*
+        run: |
+          python3 - <<'PY'
+          import os, re, statistics, subprocess, time
+          from pathlib import Path
+          from xml.etree import ElementTree as ET
 
-    - name: Checkout Submodules Without ChibiOS
-      # [tag:submodule_auth] see .github/actions/submodule-init/action.yml
-      uses: ./.github/actions/submodule-init
-      with:
-        token: ${{ secrets.MY_REPO_PAT }}
-        chibios: 'false'
-
-    - name: Discover cores
-      if: ${{ matrix.os != 'macos-latest' }}
-      run: lscpu | egrep 'Model name|Socket|Thread|NUMA|CPU\(s\)'
-
-    - name: Install required software (ubuntu)
-      if: ${{ matrix.os != 'macos-latest' }}
-      run: |
-        sudo bash misc/actions/add-ubuntu-latest-apt-mirrors.sh
-        sudo bash misc/actions/ubuntu-install-tools.sh
-        bash misc/actions/install-gcovr.sh
-        bash misc/actions/install-valgrind.sh
-
-    - name: Install required software (macos)
-      if: ${{ matrix.os == 'macos-latest' }}
-      run: |
-        brew install mtools zip dosfstools flock coreutils
-
-    - name: Print bash version
-      run: bash --version
-
-    - name: Test Java Compiler
-      run: javac -version
-
-    - name: Print Compiler version
-      # NOTE: on mac, this is actually symlink'd to clang, not gcc, but that's ok - we want to build on both
-      run: gcc -v
-
-    - name: Test STM32 flash and OpenBLT drivers
-      run: python3 unit_tests/stm32_flash/test_flash.py
-
-    - name: Handle docs-enums separately just to make github logs more readable
-      working-directory: ./unit_tests/
-      run: make -j4 docs-enums
-
-    - name: Handle configs separately just to make github logs more readable
-      working-directory: ./unit_tests/
-      run: make -j4 config
-
-    - name: Build Tests
-      working-directory: ./unit_tests/
-      run: |
-        TIMEFORMAT=%R
-        time make -j4 COVERAGE=yes
-
-      # This is expected to fail if run after UTC midnight and the last step was run before UTC midnight
-    - name: Build Tests again to assert incremental
-      working-directory: ./unit_tests/
-      run: |
-        TIMEFORMAT=%R
-        timeout 30s make -j4 COVERAGE=yes
-
-    - name: Run Tests
-      working-directory: ./unit_tests/
-      run: ASAN_OPTIONS=detect_stack_use_after_return=1 build/rusefi_test
-
-    - name: Set FTP variables
-      env:
-        ACTIONS_ALLOW_UNSECURE_COMMANDS: 'true'
-        # ref names may contain shell metacharacters - never interpolate them into scripts with ${{ }}
-        GH_REF: ${{ github.ref }}
-      run: |
-        if [ "$GH_REF" = "refs/heads/master" ]; then
-          echo "RUSEFI_SSH_SERVER=${{secrets.RUSEFI_SSH_SERVER}}" >> $GITHUB_ENV
-          echo "RUSEFI_SSH_USER=${{secrets.RUSEFI_SSH_USER}}" >> $GITHUB_ENV
-          echo "RUSEFI_SSH_PASS=${{secrets.RUSEFI_SSH_PASS}}" >> $GITHUB_ENV
-        fi
-
-    - name: Generate Code Coverage
-      if: ${{ matrix.os != 'macos-latest' }}
-      working-directory: ./unit_tests/
-      run: ./ci_gcov.sh
-
-    - name: Report code coverage
-      if: ${{ matrix.os != 'macos-latest' }}
-      uses: ./.github/actions/unit-test-coverage-report
-      with:
-        coverage_xml_path: unit_tests/gcov_working_area/gcov/coverage.xml
-        artifact_upload_path: ./unit_tests/gcov_working_area/gcov
-        baseline_workflow_file: build-unit-tests.yaml
-        artifact_name: rusefi_code_coverage.txt
-        is_pull_request: ${{ github.event_name == 'pull_request' }}
-        post_pr_comment: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false }}
-
-    - name: upload test coverage to remote server
-      if: ${{ matrix.os != 'macos-latest' && github.event_name == 'push' && github.ref == 'refs/heads/master' }}
-      working-directory: ./unit_tests
-      run: ./upload_coverage.sh
-
-
-#   - name: Run Tests (sharded)
-#      working-directory: ./unit_tests/
-#      run: bash ./run_sharded_tests.sh
-
-    - name: Rebuild Tests For Valgrind
-      # Valgrind isn't compatible with address sanitizer, so we have to rebuild the code
-      if: ${{ matrix.os != 'macos-latest' }}
-      working-directory: ./unit_tests/
-      run: |
-        make clean
-        ./make_for_valgrind.sh
-
-    - name: Run Tests (Valgrind)
-      if: ${{ matrix.os != 'macos-latest' }}
-      working-directory: ./unit_tests/
-      run: ./run_with_valgrind.sh
+          out = Path(os.environ["RUNNER_TEMP"])
+          results = Path("test_results")
+          seen = None
+          timings = {"on": [], "off": []}
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+              print("| Pass | Logging | Suite (s) | Memcheck wall (s) | Cases |", "|---:|---|---:|---:|---:|", sep="\n", file=summary)
+              for i, mode in enumerate(("on", "off", "off", "on"), 1):
+                  xml = out / f"kawasaki-{i}.xml"
+                  env = dict(os.environ, GTEST_OUTPUT=f"xml:{xml}")
+                  env.pop("KAWASAKI_NO_LOGS", None)
+                  if mode == "off":
+                      env["KAWASAKI_NO_LOGS"] = "1"
+                  def files(ext):
+                      return set(results.glob(f"unittest_realKawasaki8minus1_*.{ext}"))
+                  for path in files("msl") | files("csv"):
+                      path.unlink()
+                  start = time.monotonic()
+                  proc = subprocess.run(["./run_with_valgrind.sh"], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                  elapsed = time.monotonic() - start
+                  text = proc.stdout.decode(errors="replace")
+                  print(text, flush=True)
+                  proc.check_returncode()
+                  assert re.search(r"ERROR SUMMARY: 0 errors from 0 contexts", text)
+                  suite = ET.parse(xml).getroot()
+                  cases = suite.findall(".//testcase")
+                  names = {c.attrib["name"] for c in cases}
+                  assert len(cases) == len(names) == 12 and all(c.get("classname") == "realKawasaki8minus1" and c.get("result") == "completed" for c in cases)
+                  assert seen is None or seen == names
+                  seen = names
+                  for ext in ("msl", "csv"):
+                      expected = {results / f"unittest_realKawasaki8minus1_{n}.{ext}" for n in names} if mode == "on" else set()
+                      assert files(ext) == expected and all(p.stat().st_size > 0 for p in expected), (mode, ext)
+                  wall = float(suite.attrib["time"])
+                  timings[mode].append(wall)
+                  print(f"| {i} | {mode} | {wall:.3f} | {elapsed:.3f} | 12 |", file=summary, flush=True)
+              a, b = (statistics.mean(timings[m]) for m in ("on", "off"))
+              print(f"\nMean suite time: {a:.3f}s on, {b:.3f}s off; savings {a-b:.3f}s ({1-b/a:.1%}).", file=summary)
+          PY
