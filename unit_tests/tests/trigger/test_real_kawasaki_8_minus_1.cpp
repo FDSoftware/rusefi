@@ -164,3 +164,7 @@ TEST(realKawasaki8minus1, customGapsWithoutSparkPlug20) {
 	runKawasakiTest("tests/trigger/resources/kawasaki_8-1_trigger_teeth_logs/without spark plug/re_20.teeth",
 			true, true, 22, 304.33f);
 }
+
+TEST(CompilerCacheProbe, ChangedTranslationUnit) {
+	SUCCEED();
+}
