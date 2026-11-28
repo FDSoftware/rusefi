@@ -160,6 +160,7 @@ public final class TuneLoadPreparation {
                 try {
                     ConfigurationImage candidate = image.clone();
                     validateLuaValue(field, constant.getValue());
+                    field = msq.resolveSerializationField(ini, field, constant);
                     applyTuneConstant(constant, field, candidate);
                     images.put(identifier, candidate);
                     image = candidate;
@@ -182,8 +183,9 @@ public final class TuneLoadPreparation {
         String destinationUnits = field.getUnits();
         boolean sourceUnitsMissing = sourceUnits == null || sourceUnits.isEmpty();
         boolean destinationUnitsMissing = destinationUnits == null || destinationUnits.isEmpty();
-        if (sourceUnitsMissing != destinationUnitsMissing
-                || !IniFieldMigrationUtils.checkIfUnitsCanBeMigrated(sourceUnits, destinationUnits)) {
+        // An absent MSQ attribute uses the INI's base representation; an explicit empty unit is still unitless.
+        if (sourceUnits != null && (sourceUnitsMissing != destinationUnitsMissing
+                || !IniFieldMigrationUtils.checkIfUnitsCanBeMigrated(sourceUnits, destinationUnits))) {
             throw new IllegalArgumentException("units do not match");
         }
         if (field instanceof ArrayIniField) {

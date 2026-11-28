@@ -5,8 +5,13 @@ import com.opensr5.ConfigurationImage;
 import com.opensr5.ConfigurationImageGetterSetter;
 import com.rusefi.tune.ConfigurationImageGetterSetter2;
 import com.opensr5.ini.IniFileModel;
+import com.opensr5.ini.ExpressionEvaluator;
+import com.opensr5.ini.TsStringFunction;
 import com.opensr5.ini.field.ArrayIniField;
+import com.opensr5.ini.field.EnumIniField;
 import com.opensr5.ini.field.IniField;
+import com.opensr5.ini.field.ScalarIniField;
+import com.opensr5.ini.field.PcVariableArrayIniField;
 import com.opensr5.ini.field.StringIniField;
 import com.rusefi.UiVersion;
 import com.rusefi.xml.XmlUtil;
@@ -17,6 +22,7 @@ import jakarta.xml.bind.annotation.*;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Function;
 
 @XmlRootElement
 public class Msq {
@@ -109,6 +115,7 @@ public class Msq {
                 continue;
             }
             log.debug("Setting " + field);
+            field = resolveSerializationField(instance, field, constant);
             ConfigurationImageGetterSetter2.setValue(field, ci, constant);
         }
         return ci;
@@ -134,12 +141,71 @@ public class Msq {
                 continue;
             }
             try {
+                field = resolveSerializationField(instance, field, constant);
                 ConfigurationImageGetterSetter2.setValue(field, ci, constant);
             } catch (IllegalArgumentException e) {
                 log.info("applyOnto: skipping incompatible value for " + constant.getName() + ": " + e.getMessage());
             }
         }
         return ci;
+    }
+
+    /** Resolve TS display scaling without reinterpreting the base values written by {@link #valueOf}. */
+    public IniField resolveSerializationField(IniFileModel ini, IniField field, Constant constant) {
+        if (!(field instanceof ArrayIniField) || field instanceof PcVariableArrayIniField) {
+            return field;
+        }
+        ArrayIniField array = (ArrayIniField) field;
+        String units = constant.getUnits();
+        if (array.getScaleExpression() == null || units == null || units.isEmpty()
+                || (Objects.equals(units, field.getUnits()) && Objects.equals(constant.getDigits(), field.getDigits()))) {
+            // shortcut: identical metadata denotes Console base values; add producer metadata if another writer uses display values with it.
+            return field;
+        }
+        Map<String, Constant> constants = getConstantsAsMap();
+        Function<String, Map<String, Double>> variables = expression ->
+            ExpressionEvaluator.resolveVariables(expression, ini, dependency -> {
+                Constant value = constants.get(dependency.getName());
+                if (value == null || value.getValue() == null) {
+                    return null;
+                }
+                if (dependency instanceof EnumIniField) {
+                    int ordinal = ((EnumIniField) dependency).getEnums().indexOf(value.getValue());
+                    return ordinal < 0 ? null : (double) ordinal;
+                }
+                if (dependency instanceof ScalarIniField) {
+                    try {
+                        double numeric = Double.parseDouble(value.getValue())
+                            - ((ScalarIniField) dependency).getSerializationOffset();
+                        return Double.isFinite(numeric) ? numeric : null;
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                }
+                return null;
+            });
+        String sourceUnits = TsStringFunction.resolveWithVariables(units, ini, null, variables);
+        String targetUnits = TsStringFunction.resolveWithVariables(field.getUnits(), ini, null, variables);
+        if (sourceUnits == null || targetUnits == null || !sourceUnits.equalsIgnoreCase(targetUnits)) {
+            throw new IllegalArgumentException("units do not match");
+        }
+        Double scale = ExpressionEvaluator.tryEvaluateWithContext(array.getScaleExpression(),
+            variables.apply(array.getScaleExpression()));
+        if (scale == null || !Double.isFinite(scale) || scale == 0) {
+            throw new IllegalArgumentException("cannot resolve table scale");
+        }
+        Double translate = array.getTranslateExpression() == null ? Double.valueOf(array.getTranslate())
+            : ExpressionEvaluator.tryEvaluateWithContext(array.getTranslateExpression(),
+                variables.apply(array.getTranslateExpression()));
+        // shortcut: array serialization has no translation support; implement it before accepting translated display values.
+        if (translate == null || translate != 0) {
+            throw new IllegalArgumentException("unsupported table translation");
+        }
+        ArrayIniField resolved = new ArrayIniField(array.getName(), array.getOffset(), array.getType(),
+            array.getCols(), array.getRows(), array.getUnits(), scale, array.getMin(), array.getMax(),
+            array.getDigits(), array.getScaleExpression(), array.getTranslate(), array.getTranslateExpression());
+        resolved.setPageIndex(array.getPageIndex());
+        return resolved;
     }
 
     public static Msq readTune(String fileName) throws JAXBException {

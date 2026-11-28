@@ -89,7 +89,7 @@ public class TsStringFunction {
     }
 
     @Nullable
-    private static String resolveWithVariables(String expression, IniFileModel ini, @Nullable ConfigurationImage configImage,
+    public static String resolveWithVariables(String expression, IniFileModel ini, @Nullable ConfigurationImage configImage,
                                                Function<String, Map<String, Double>> variables) {
         if (expression == null) {
             return null;

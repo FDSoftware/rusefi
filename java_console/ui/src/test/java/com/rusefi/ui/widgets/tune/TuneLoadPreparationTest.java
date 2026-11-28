@@ -4,17 +4,28 @@ import com.opensr5.ConfigurationImage;
 import com.opensr5.ConfigurationImageGetterSetter;
 import com.opensr5.ini.IniFileMetaInfo;
 import com.opensr5.ini.IniFileModel;
+import com.opensr5.ini.IniFileMetaInfoImpl;
+import com.opensr5.ini.RawIniFile;
+import com.opensr5.ini.field.ArrayIniField;
 import com.opensr5.ini.field.IniField;
 import com.opensr5.ini.field.EnumIniField;
 import com.opensr5.ini.field.StringIniField;
+import com.opensr5.ini.field.ScalarIniField;
+import com.opensr5.ini.field.PcVariableArrayIniField;
 import com.rusefi.config.FieldType;
 import com.rusefi.io.UpdateOperationCallbacks;
+import com.rusefi.ini.reader.IniFileReaderUtil;
+import com.rusefi.ini.reader.IniParsingException;
 import com.rusefi.tune.xml.Constant;
 import com.rusefi.tune.xml.Msq;
 import com.rusefi.tune.xml.Page;
+import com.rusefi.tune.xml.MsqFactory;
 import org.junit.jupiter.api.Test;
 
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
@@ -26,6 +37,138 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 class TuneLoadPreparationTest {
+    @Test
+    void offlineOpenHistoricalAfrTune() throws Exception, IniParsingException {
+        IniFileModel ini = historicalLambdaIni();
+        Msq tune = Msq.readTune(new File(getClass().getResource("/26october.msq").toURI()).getPath());
+        assertEquals(ini.getSignature(), tune.getVersionInfo().getSignature());
+        assertEquals("\"AFR\"", tune.getConstantsAsMap().get("useLambdaOnInterface").getValue());
+        assertEquals("14.7", tune.getConstantsAsMap().get("lambdaTable").getValue().trim().split("\\s+")[0]);
+
+        // #10741: both loaders must preserve AFR values without wrapping or rejecting valid table cells.
+        assertEquals(147, Byte.toUnsignedInt(tune.asImage(ini).getContent()[9508]));
+        assertEquals(147, Byte.toUnsignedInt(TuneLoadPreparation.openOffline(tune, ini).get(0).getContent()[9508]));
+    }
+
+    @Test
+    void offlineOpenLegacyTableWithoutUnits() {
+        ArrayIniField field = new ArrayIniField("lambdaTable", 0, FieldType.UINT8, 1, 1,
+            "lambda", 1.0 / 147, "0.6", "1.5", "2");
+        IniFileModel ini = mock(IniFileModel.class);
+        when(ini.getSignature()).thenReturn("same");
+        IniFileMetaInfo meta = metaForMainPage(1);
+        when(ini.getMetaInfo()).thenReturn(meta);
+        when(ini.getByteOrder()).thenReturn(ByteOrder.LITTLE_ENDIAN);
+        when(ini.findIniField("lambdaTable")).thenReturn(Optional.of(field));
+        Msq tune = Msq.create(1, "same");
+        tune.findPage().constant.add(new Constant("lambdaTable", null, "1.0", "2", "1", "1"));
+
+        // #10741: omitted units metadata is not an incompatible physical unit.
+        assertEquals(147, Byte.toUnsignedInt(TuneLoadPreparation.openOffline(tune, ini).get(0).getContent()[0]));
+    }
+
+    @Test
+    void consoleGeneratedLambdaValuesRoundTripEvenWithAfrDisplaySelected() throws IniParsingException {
+        IniFileModel ini = historicalLambdaIni();
+        ConfigurationImage image = new ConfigurationImage(16816, ByteOrder.LITTLE_ENDIAN);
+        Arrays.fill(image.getContent(), 9508, 9508 + 256, (byte) 147);
+        Msq tune = MsqFactory.valueOf(image, ini);
+        assertEquals("\"AFR\"", tune.getConstantsAsMap().get("useLambdaOnInterface").getValue());
+        assertEquals("1.0", tune.getConstantsAsMap().get("lambdaTable").getValue().trim().split("\\s+")[0]);
+        assertArrayEquals(image.getContent(), TuneLoadPreparation.openOffline(tune, ini).get(0).getContent());
+    }
+
+    @Test
+    void displayedTableUsesIncomingModeRegardlessOfConstantOrder() throws IniParsingException {
+        IniFileModel ini = historicalLambdaIni();
+        Msq tune = Msq.create(16816, ini.getSignature());
+        Constant table = new Constant("lambdaTable", "afr", String.join(" ", Collections.nCopies(256, "14.7")),
+            "1", "16", "16");
+        tune.findPage().constant.add(table);
+        tune.findPage().constant.add(new Constant("useLambdaOnInterface", null, "\"AFR\"", null));
+        ConfigurationImage current = new ConfigurationImage(16816, ByteOrder.LITTLE_ENDIAN);
+        current.setBitValue((EnumIniField) ini.findIniField("useLambdaOnInterface").get(), 1);
+
+        assertEquals(147, Byte.toUnsignedInt(tune.asImage(ini).getContent()[9508]));
+        assertEquals(147, Byte.toUnsignedInt(tune.applyOnto(current, ini).getContent()[9508]));
+        assertEquals(147, Byte.toUnsignedInt(TuneLoadPreparation.openOffline(tune, ini).get(0).getContent()[9508]));
+        assertEquals("afr", table.getUnits());
+        assertEquals("14.7", table.getValue().split(" ")[0]);
+        assertEquals(1.0 / 147, ((ArrayIniField) ini.findIniField("lambdaTable").get()).getMultiplier());
+
+        table.setUnits("lambda");
+        assertThrows(IllegalArgumentException.class, () -> TuneLoadPreparation.openOffline(tune, ini));
+        table.setUnits("afr");
+        table.setValue(String.join(" ", Collections.nCopies(256, "26")));
+        assertThrows(IllegalArgumentException.class, () -> TuneLoadPreparation.openOffline(tune, ini));
+        table.setValue(String.join(" ", Collections.nCopies(256, "NaN")));
+        assertThrows(IllegalArgumentException.class, () -> TuneLoadPreparation.openOffline(tune, ini));
+        table.setValue(String.join(" ", Collections.nCopies(256, "14.7")));
+        Msq withoutSelector = Msq.create(16816, ini.getSignature());
+        withoutSelector.findPage().constant.add(table);
+        assertThrows(IllegalArgumentException.class, () -> TuneLoadPreparation.openOffline(withoutSelector, ini));
+
+        table.setUnits("lambda");
+        table.setValue(String.join(" ", Collections.nCopies(256, "1.0")));
+        tune.findPage().constant.get(1).setValue("\"Lambda\"");
+        assertEquals(147, Byte.toUnsignedInt(TuneLoadPreparation.openOffline(tune, ini).get(0).getContent()[9508]));
+    }
+
+    @Test
+    void resolvedTableRetainsItsSecondaryPageIdentifier() throws IniParsingException {
+        IniFileModel ini = historicalLambdaIni();
+        Msq tune = Msq.create(16816, ini.getSignature());
+        tune.findPage().constant.add(new Constant("useLambdaOnInterface", null, "\"AFR\"", null));
+        ArrayIniField field = (ArrayIniField) ini.findIniField("lambdaTable").get();
+        field.setPageIndex(0x0300);
+        IniField resolved = tune.resolveSerializationField(ini, field,
+            new Constant("lambdaTable", "afr", "14.7", "1", "16", "16"));
+        assertEquals(0x0300, resolved.getPageIndex());
+        assertEquals(0.1, ((ArrayIniField) resolved).getMultiplier());
+        PcVariableArrayIniField pcArray = new PcVariableArrayIniField(field);
+        assertSame(pcArray, tune.resolveSerializationField(ini, pcArray,
+            new Constant("lambdaTable", "afr", "14.7", "1", "16", "16")));
+        ArrayIniField translated = new ArrayIniField(field.getName(), field.getOffset(), field.getType(),
+            field.getCols(), field.getRows(), field.getUnits(), field.getMultiplier(), field.getMin(), field.getMax(),
+            field.getDigits(), field.getScaleExpression(), 1, null);
+        assertThrows(IllegalArgumentException.class, () -> tune.resolveSerializationField(ini, translated,
+            new Constant("lambdaTable", "afr", "14.7", "1", "16", "16")));
+    }
+
+    @Test
+    void tableScaleRejectsInvalidDependenciesAndUsesScalarSerializationOffset() throws IniParsingException {
+        IniFileModel ini = readIni("signature = \"same\"\n"
+            + "nPages = 1\npageSize = 2\npageReadCommand = \"R\"\nochBlockSize = 1\n"
+            + "[Constants]\npage = 1\n"
+            + "selector = scalar, U08, 0, \"\", 1, 10, 0, 255, 0\n"
+            + "table = array, U08, 1, [1], {selector ? \"a\" : \"b\"}, "
+            + "{selector ? 2 : 1}, 0, 0, 255, {selector ? 0 : 1}\n");
+        Msq tune = Msq.create(2, "same");
+        tune.findPage().constant.add(new Constant("table", "b", "1", "1", "1", "1"));
+        Constant selector = new Constant("selector", "", "10", "0");
+        tune.findPage().constant.add(selector);
+        assertArrayEquals(new byte[]{0, 1}, TuneLoadPreparation.openOffline(tune, ini).get(0).getContent());
+        for (String invalid : new String[]{null, "NaN", "Infinity", "bad"}) {
+            selector.setValue(invalid);
+            assertThrows(IllegalArgumentException.class, () -> TuneLoadPreparation.openOffline(tune, ini));
+        }
+    }
+
+    @Test
+    void omittedUnitsDoNotDisableValueOrExplicitUnitsValidation() {
+        ScalarIniField field = new ScalarIniField("value", 0, "kPa", FieldType.UINT8, 1, "0", 0);
+        ConfigurationImage image = new ConfigurationImage(1, ByteOrder.LITTLE_ENDIAN);
+        for (String invalid : new String[]{"NaN", "Infinity", "-1", "256"}) {
+            assertThrows(IllegalArgumentException.class,
+                () -> TuneLoadPreparation.applyTuneConstant(new Constant("value", null, invalid, "0"), field, image));
+        }
+        assertThrows(IllegalArgumentException.class, () -> TuneLoadPreparation.applyTuneConstant(
+            new Constant("value", "rpm", "1", "0"), field, image));
+        ScalarIniField unitless = new ScalarIniField("value", 0, "", FieldType.UINT8, 1, "0", 0);
+        assertThrows(IllegalArgumentException.class, () -> TuneLoadPreparation.applyTuneConstant(
+            new Constant("value", "kPa", "1", "0"), unitless, image));
+    }
+
     @Test
     void pcMetadataNeverWritesToTheEcuPageImage() {
         EnumIniField labels = new EnumIniField("unitsLabels", 0, FieldType.UINT8,
@@ -134,6 +277,23 @@ class TuneLoadPreparationTest {
             Map.of(0, main, 0x0400, secondary), UpdateOperationCallbacks.DUMMY);
         assertArrayEquals(secondary.getContent(), wrongSource.incoming.get(0x0400).getContent());
         assertTrue(wrongSource.warnings.stream().anyMatch(warning -> warning.contains("does not match")));
+    }
+
+    private static IniFileModel historicalLambdaIni() throws IniParsingException {
+        // Unmodified field definitions from the source INI matching the TunerStudio fixture's signature.
+        String text = "signature = \"rusEFI master.2026.09.24.uaefi_pro.22860091\"\n"
+            + "nPages = 1\npageSize = 16816\npageReadCommand = \"R\"\nochBlockSize = 1\n"
+            + "[Constants]\npage = 1\n"
+            + "useLambdaOnInterface = bits, U32, 12, [2:2], \"AFR\", \"Lambda\"\n"
+            + "lambdaTable = array, U08, 9508, [16x16], {useLambdaOnInterface ? \"lambda\" : \"afr\"}, "
+            + "{ useLambdaOnInterface ? 1/147 : 1/10 }, 0, {useLambdaOnInterface ? 0.6 : 0}, "
+            + "{useLambdaOnInterface ? 1.5 : 25}, {useLambdaOnInterface ? 2 : 1}\n";
+        return readIni(text);
+    }
+
+    private static IniFileModel readIni(String text) throws IniParsingException {
+        RawIniFile lines = IniFileReaderUtil.read(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)));
+        return IniFileReaderUtil.readIniFile(lines, "historical-lambda.ini", new IniFileMetaInfoImpl(lines));
     }
 
     private static IniFileMetaInfo metaForMainPage(int pageSize) {
